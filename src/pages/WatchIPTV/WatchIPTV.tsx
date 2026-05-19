@@ -3,17 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import Hls from 'hls.js'
 import { getChannels, getEPG, getChannelStreamUrl } from '../../services/xg2gApi'
 import type { Channel, EPGProgram } from '../../types/xg2g'
-
-const RANDOM_MOVIES = [
-  { id: 'f1',  title: 'Stellar Void',      year: 2025, genre: 'Sci-Fi',   g: 'linear-gradient(160deg,#0a1628,#1a4a8c,#0d2040)' },
-  { id: 'f3',  title: 'Velocity Prime',    year: 2025, genre: 'Action',   g: 'linear-gradient(160deg,#1a0000,#5a0000,#2a0000)' },
-  { id: 'f5',  title: 'The Algorithm',     year: 2025, genre: 'Sci-Fi',   g: 'linear-gradient(160deg,#0a0a1a,#2a2a6a,#0a0a3a)' },
-  { id: 'f6',  title: 'Red Horizon',       year: 2025, genre: 'Action',   g: 'linear-gradient(160deg,#1a0800,#5a1a00,#2a0e00)' },
-  { id: 'f8',  title: 'Dusk Drifter',      year: 2025, genre: 'Drama',    g: 'linear-gradient(160deg,#1a1000,#4a2d00,#2a1800)' },
-  { id: 'f15', title: 'Last Signal',       year: 2025, genre: 'Thriller', g: 'linear-gradient(160deg,#0a0800,#302000,#1a1000)' },
-  { id: 's1',  title: 'Kairo Chronicles',  year: 2024, genre: 'Sci-Fi',   g: 'linear-gradient(160deg,#0a1628,#1a4a8c,#0d2040)' },
-  { id: 's5',  title: 'Red Lagos',         year: 2025, genre: 'Drama',    g: 'linear-gradient(160deg,#180800,#500000,#280000)' },
-]
+import { getPopularMovies, tmdbImg } from '../../services/tmdbApi'
+import type { TmdbMovie } from '../../types/tmdb'
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -59,14 +50,16 @@ export function WatchIPTV() {
   const [showControls, setShowControls] = useState(true)
   const [showSchedule, setShowSchedule] = useState(window.innerWidth >= 640)
   const [showMovies, setShowMovies] = useState(false)
+  const [movies, setMovies] = useState<TmdbMovie[]>([])
 
   useEffect(() => {
     async function load() {
       try {
-        const [chs, epg] = await Promise.all([getChannels(), getEPG()])
+        const [chs, epg, popMovies] = await Promise.all([getChannels(), getEPG(), getPopularMovies()])
         const found = chs.find((c) => c.id === channelId)
         if (found) setChannel(found)
         if (channelId && epg[channelId]) setSchedule(epg[channelId])
+        setMovies(popMovies.slice(0, 10))
       } catch {}
     }
     load()
@@ -283,7 +276,7 @@ export function WatchIPTV() {
               </button>
             </div>
             <div className="flex gap-3 px-4 py-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              {RANDOM_MOVIES.map((m) => (
+              {movies.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => navigate(`/watch/${m.id}`)}
@@ -291,19 +284,24 @@ export function WatchIPTV() {
                 >
                   <div
                     className="rounded-lg overflow-hidden relative mb-1.5 transition-all group-hover:scale-105"
-                    style={{ width: 90, aspectRatio: '2/3', background: m.g }}
+                    style={{ width: 90, aspectRatio: '2/3', background: '#222' }}
                   >
+                    {m.poster_path && (
+                      <img src={tmdbImg(m.poster_path, 'w185') || undefined} alt={m.title} className="w-full h-full object-cover" />
+                    )}
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
                       <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.9)' }}>
                         <svg width="9" height="9" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21" /></svg>
                       </div>
                     </div>
-                    <div className="absolute top-1.5 left-1.5">
-                      <span className="text-[8px] font-bold px-1 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.75)', color: '#aaa' }}>{m.genre}</span>
-                    </div>
+                    {m.vote_average > 0 && (
+                      <div className="absolute top-1.5 left-1.5">
+                        <span className="text-[8px] font-bold px-1 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.75)', color: '#aaa' }}>★ {m.vote_average.toFixed(1)}</span>
+                      </div>
+                    )}
                   </div>
                   <p className="text-[10px] font-semibold text-white truncate" style={{ maxWidth: 90 }}>{m.title}</p>
-                  <p className="text-[9px] mt-0.5" style={{ color: '#555' }}>{m.year}</p>
+                  <p className="text-[9px] mt-0.5" style={{ color: '#555' }}>{m.release_date ? m.release_date.split('-')[0] : ''}</p>
                 </button>
               ))}
             </div>
