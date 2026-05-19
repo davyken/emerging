@@ -4,9 +4,11 @@ import Hls from 'hls.js'
 import { getMediaDetail, getStreamUrl } from '../../services/plexApi'
 import { useAuthStore } from '../../store/authStore'
 import type { PlexMedia } from '../../types/plex'
+import { getTrailerYouTubeId, buildYouTubeEmbedUrl } from '../../services/trailerService'
 
-// Public multi-bitrate HLS test stream (Big Buck Bunny, Mux)
-const DEMO_STREAM = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'
+// Used only when a real Plex stream is unavailable and the user wants to test
+// quality switching (multi-bitrate Big Buck Bunny from Mux).
+const HLS_DEMO_STREAM = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'
 
 const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 
@@ -19,7 +21,7 @@ function formatTime(s: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
 }
 
-type QualityLevel = { label: string; level: number; height: number; bitrate: number }
+type QualityLevel = { label: string; level: number; height: number }
 type SettingsView = 'root' | 'quality' | 'speed'
 
 export function Watch() {
@@ -37,22 +39,24 @@ export function Watch() {
   const [streamReady, setStreamReady] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  // YouTube trailer mode vs HLS mode
+  const [hlsQualityDemo, setHlsQualityDemo] = useState(false)
+
+  // HLS playback state
   const [playing, setPlaying] = useState(true)
   const [muted, setMuted] = useState(false)
   const [volume, setVolume] = useState(1)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-
   const [qualities, setQualities] = useState<QualityLevel[]>([])
   const [currentLevel, setCurrentLevel] = useState(-1)
   const [qualityBadge, setQualityBadge] = useState('')
-
   const [showSettings, setShowSettings] = useState(false)
   const [settingsView, setSettingsView] = useState<SettingsView>('root')
   const [showControls, setShowControls] = useState(true)
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
 
-  // Fetch media metadata
+  // ── 1. Fetch Plex media metadata ────────────────────────────────────────────
   useEffect(() => {
     if (!ratingKey || ratingKey === 'demo') {
       setLoading(false)
@@ -65,14 +69,26 @@ export function Watch() {
       .finally(() => { setLoading(false); setStreamReady(true) })
   }, [ratingKey, token])
 
-  // Compute stream source once we know whether Plex has a part
-  const streamSrc = useMemo(() => {
-    if (!streamReady) return null
-    const partKey = media?.Media?.[0]?.Part?.[0]?.key
-    return partKey ? getStreamUrl(token, partKey) : DEMO_STREAM
-  }, [media, token, streamReady])
+  // ── 2. Decide mode ──────────────────────────────────────────────────────────
+  // hasRealStream = true  → HLS mode (custom player + quality controls)
+  // hasRealStream = false → YouTube trailer mode (unless user toggled HLS demo)
+  const hasRealStream = !!(media?.Media?.[0]?.Part?.[0]?.key)
+  const isYouTubeMode = streamReady && !hasRealStream && !hlsQualityDemo
 
-  // Load HLS stream
+  const youtubeId = useMemo(
+    () => (isYouTubeMode ? getTrailerYouTubeId(ratingKey ?? 'demo') : null),
+    [isYouTubeMode, ratingKey]
+  )
+  const youtubeEmbedUrl = youtubeId ? buildYouTubeEmbedUrl(youtubeId, true) : null
+
+  // ── 3. HLS stream URL (Plex or demo) ───────────────────────────────────────
+  const streamSrc = useMemo(() => {
+    if (!streamReady || isYouTubeMode) return null
+    const partKey = media?.Media?.[0]?.Part?.[0]?.key
+    return partKey ? getStreamUrl(token, partKey) : HLS_DEMO_STREAM
+  }, [media, token, streamReady, isYouTubeMode])
+
+  // ── 4. Load HLS stream ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!streamSrc) return
     const video = videoRef.current
@@ -90,13 +106,11 @@ export function Watch() {
       hls.attachMedia(video)
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-        const levels: QualityLevel[] = data.levels.map((l, i) => ({
+        setQualities(data.levels.map((l, i) => ({
           label: l.height ? `${l.height}p` : `${Math.round((l.bitrate || 0) / 1000)}kbps`,
           level: i,
           height: l.height ?? 0,
-          bitrate: l.bitrate ?? 0,
-        }))
-        setQualities(levels)
+        })))
         video.play().catch(() => null)
       })
 
@@ -104,31 +118,9 @@ export function Watch() {
         setCurrentLevel(d.level)
         const lvl = hls.levels[d.level]
         if (lvl?.height) {
-          const badge = `${lvl.height}p`
-          setQualityBadge(badge)
+          setQualityBadge(`${lvl.height}p`)
           if (badgeTimer.current) clearTimeout(badgeTimer.current)
           badgeTimer.current = setTimeout(() => setQualityBadge(''), 2500)
-        }
-      })
-
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal && streamSrc !== DEMO_STREAM) {
-          hls.destroy()
-          hlsRef.current = null
-          // Plex failed → fall back to demo
-          const demoHls = new Hls({ startLevel: -1 })
-          hlsRef.current = demoHls
-          demoHls.loadSource(DEMO_STREAM)
-          demoHls.attachMedia(video)
-          demoHls.on(Hls.Events.MANIFEST_PARSED, (_, data2) => {
-            setQualities(data2.levels.map((l, i) => ({
-              label: l.height ? `${l.height}p` : `${Math.round((l.bitrate || 0) / 1000)}kbps`,
-              level: i,
-              height: l.height ?? 0,
-              bitrate: l.bitrate ?? 0,
-            })))
-            video.play().catch(() => null)
-          })
         }
       })
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -139,7 +131,7 @@ export function Watch() {
     return () => { hlsRef.current?.destroy(); hlsRef.current = null }
   }, [streamSrc])
 
-  // Video events
+  // ── 5. Video element events ─────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
@@ -159,8 +151,9 @@ export function Watch() {
     }
   }, [])
 
-  // Keyboard shortcuts
+  // ── 6. Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
+    if (isYouTubeMode) return
     function onKey(e: KeyboardEvent) {
       const video = videoRef.current
       if (!video) return
@@ -176,15 +169,16 @@ export function Watch() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [playing, duration])
+  }, [playing, duration, isYouTubeMode])
 
   function resetHideTimer() {
     setShowControls(true)
     if (hideTimer.current) clearTimeout(hideTimer.current)
-    hideTimer.current = setTimeout(() => { setShowControls(false); setShowSettings(false) }, 3500)
+    hideTimer.current = setTimeout(() => { setShowControls(false); setShowSettings(false) }, 4000)
   }
 
   function togglePlay() {
+    if (isYouTubeMode) return
     const video = videoRef.current
     if (!video) return
     playing ? video.pause() : video.play()
@@ -198,23 +192,18 @@ export function Watch() {
   }
 
   function changeQuality(level: number) {
-    if (hlsRef.current) {
-      hlsRef.current.currentLevel = level
-      setCurrentLevel(level)
-    }
-    setShowSettings(false)
-    setSettingsView('root')
+    if (hlsRef.current) { hlsRef.current.currentLevel = level; setCurrentLevel(level) }
+    setShowSettings(false); setSettingsView('root')
   }
 
   function changeSpeed(s: number) {
     setPlaybackSpeed(s)
     if (videoRef.current) videoRef.current.playbackRate = s
-    setShowSettings(false)
-    setSettingsView('root')
+    setShowSettings(false); setSettingsView('root')
   }
 
   const activeQualityLabel = currentLevel === -1 ? 'Auto' : (qualities[currentLevel]?.label ?? 'Auto')
-  const title = media?.title ?? 'Les Ombres de la Frontière'
+  const title = media?.title ?? 'Titre non disponible'
 
   if (loading) {
     return (
@@ -224,6 +213,88 @@ export function Watch() {
     )
   }
 
+  // ════════════════════════════════════════════════════════════════════════════
+  //  YOUTUBE TRAILER MODE
+  // ════════════════════════════════════════════════════════════════════════════
+  if (isYouTubeMode && youtubeEmbedUrl) {
+    return (
+      <div
+        ref={containerRef}
+        className="relative w-screen h-screen overflow-hidden"
+        style={{ background: '#000' }}
+        onMouseMove={resetHideTimer}
+        onTouchStart={resetHideTimer}
+      >
+        {/* Full-screen YouTube embed */}
+        <iframe
+          key={ratingKey}
+          src={youtubeEmbedUrl}
+          className="absolute inset-0 w-full h-full"
+          style={{ border: 'none' }}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+
+        {/* Top overlay — fades out after inactivity */}
+        <div
+          className="absolute top-0 left-0 right-0 flex items-center px-3 sm:px-6 h-12 sm:h-14 z-20 transition-opacity duration-500 pointer-events-none"
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)', opacity: showControls ? 1 : 0 }}
+        >
+          <div className="pointer-events-auto flex items-center w-full gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 hover:bg-white/15 transition-colors"
+              style={{ color: 'rgba(255,255,255,0.9)' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
+            </button>
+
+            <img src="/logo.png" alt="EmergingStream" className="flex-shrink-0" style={{ height: '20px', width: 'auto' }} />
+
+            <div className="flex-1" />
+
+            <div className="flex items-center gap-2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff4444"><polygon points="5,3 19,12 5,21" /></svg>
+              <span className="text-xs font-semibold text-white truncate max-w-[160px] sm:max-w-xs">{title}</span>
+              <span className="text-[10px] px-2 py-0.5 rounded flex-shrink-0" style={{ background: 'rgba(255,60,60,0.25)', color: '#ff7777', border: '1px solid rgba(255,60,60,0.3)' }}>
+                TRAILER
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom bar — HLS quality demo toggle */}
+        <div
+          className="absolute bottom-0 left-0 right-0 flex items-end justify-between px-3 sm:px-6 pb-3 sm:pb-4 z-20 transition-opacity duration-500 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)', opacity: showControls ? 1 : 0 }}
+        >
+          <div className="pointer-events-auto">
+            <button
+              onClick={() => setHlsQualityDemo(true)}
+              className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+              style={{ background: 'rgba(255,255,255,0.1)', color: '#ccc', border: '1px solid rgba(255,255,255,0.15)' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
+              Tester le changement de qualité
+            </button>
+          </div>
+          <div className="pointer-events-auto">
+            <button
+              onClick={() => containerRef.current?.requestFullscreen?.()}
+              className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 transition-colors"
+              style={{ color: 'rgba(255,255,255,0.7)' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  //  HLS PLAYER MODE (real Plex stream OR quality-demo with Mux)
+  // ════════════════════════════════════════════════════════════════════════════
   return (
     <div
       ref={containerRef}
@@ -235,10 +306,18 @@ export function Watch() {
     >
       <video ref={videoRef} className="w-full h-full object-contain" playsInline />
 
+      {/* Demo mode banner */}
+      {hlsQualityDemo && !hasRealStream && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-lg pointer-events-none" style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--color-teal)' }} />
+          <span className="text-[10px] text-white">Mode démo qualité — Big Buck Bunny (Mux)</span>
+        </div>
+      )}
+
       {/* Quality change badge */}
       {qualityBadge && (
         <div
-          className="absolute top-16 right-4 sm:right-6 z-30 px-3 py-1.5 rounded-lg text-xs font-bold pointer-events-none animate-pulse"
+          className="absolute top-16 right-4 sm:right-6 z-30 px-3 py-1.5 rounded-lg text-xs font-bold pointer-events-none"
           style={{ background: 'rgba(0,0,0,0.85)', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.4)', backdropFilter: 'blur(8px)' }}
         >
           {qualityBadge}
@@ -268,8 +347,20 @@ export function Watch() {
         </div>
 
         <div className="flex-1" />
+
         <span className="text-xs sm:text-sm font-semibold text-white truncate max-w-[160px] sm:max-w-sm">{title}</span>
         <span className="text-xs ml-3 flex-shrink-0 hidden sm:block" style={{ color: '#666' }}>S1 · E4 · 48 min</span>
+
+        {/* Back to trailer */}
+        {hlsQualityDemo && !hasRealStream && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setHlsQualityDemo(false) }}
+            className="ml-4 text-xs px-3 py-1 rounded-lg flex-shrink-0 transition-colors hover:bg-white/10"
+            style={{ color: '#aaa', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            ← Trailer
+          </button>
+        )}
       </div>
 
       {/* Center pause indicator */}
@@ -289,7 +380,6 @@ export function Watch() {
           style={{ width: '230px', background: 'rgba(15,15,15,0.97)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', boxShadow: '0 8px 32px rgba(0,0,0,0.7)' }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Root menu */}
           {settingsView === 'root' && (
             <>
               <div className="px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -333,7 +423,6 @@ export function Watch() {
             </>
           )}
 
-          {/* Quality submenu */}
           {settingsView === 'quality' && (
             <>
               <button
@@ -344,7 +433,6 @@ export function Watch() {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
                 <p className="text-xs font-semibold text-white">Qualité</p>
               </button>
-              {/* Auto */}
               <button
                 onClick={() => changeQuality(-1)}
                 className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors"
@@ -352,7 +440,6 @@ export function Watch() {
                 <span className="text-xs text-white">Auto</span>
                 {currentLevel === -1 && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>}
               </button>
-              {/* Quality levels, highest first */}
               {[...qualities].reverse().map((q) => (
                 <button
                   key={q.level}
@@ -361,23 +448,18 @@ export function Watch() {
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-white">{q.label}</span>
-                    {q.height >= 1080 && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(45,212,191,0.2)', color: 'var(--color-teal)' }}>HD</span>
-                    )}
-                    {q.height >= 720 && q.height < 1080 && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(201,168,76,0.15)', color: 'var(--color-gold)' }}>HD</span>
-                    )}
+                    {q.height >= 1080 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(45,212,191,0.2)', color: 'var(--color-teal)' }}>Full HD</span>}
+                    {q.height >= 720 && q.height < 1080 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(201,168,76,0.15)', color: 'var(--color-gold)' }}>HD</span>}
                   </div>
                   {currentLevel === q.level && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>}
                 </button>
               ))}
               {qualities.length === 0 && (
-                <p className="px-4 py-3 text-xs" style={{ color: '#666' }}>Chargement des qualités…</p>
+                <p className="px-4 py-3 text-xs" style={{ color: '#666' }}>Chargement…</p>
               )}
             </>
           )}
 
-          {/* Speed submenu */}
           {settingsView === 'speed' && (
             <>
               <button
@@ -386,14 +468,10 @@ export function Watch() {
                 style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
-                <p className="text-xs font-semibold text-white">Vitesse de lecture</p>
+                <p className="text-xs font-semibold text-white">Vitesse</p>
               </button>
               {PLAYBACK_SPEEDS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => changeSpeed(s)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors"
-                >
+                <button key={s} onClick={() => changeSpeed(s)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
                   <span className="text-xs text-white">{s === 1 ? 'Normal' : `${s}x`}</span>
                   {playbackSpeed === s && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>}
                 </button>
@@ -416,18 +494,12 @@ export function Watch() {
             style={{ background: 'rgba(255,255,255,0.25)' }}
             onClick={seek}
           >
-            <div
-              className="absolute left-0 top-0 h-full rounded-full"
-              style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%', background: 'var(--color-gold)' }}
-            />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ left: duration ? `calc(${(currentTime / duration) * 100}% - 6px)` : '0', background: 'var(--color-gold)' }}
-            />
+            <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%', background: 'var(--color-gold)' }} />
+            <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ left: duration ? `calc(${(currentTime / duration) * 100}% - 6px)` : '0', background: 'var(--color-gold)' }} />
           </div>
         </div>
 
-        {/* Controls */}
+        {/* Controls row */}
         <div className="flex items-center px-3 sm:px-6 gap-2 sm:gap-4">
           {/* Play/Pause */}
           <button onClick={togglePlay} className="text-white hover:text-gray-300 transition-colors flex-shrink-0">
@@ -439,15 +511,14 @@ export function Watch() {
 
           {/* Skip back 10s */}
           <button
-            className="hidden sm:flex items-center text-gray-400 hover:text-white transition-colors text-[10px] gap-0.5"
+            className="hidden sm:flex items-center text-gray-400 hover:text-white transition-colors"
             onClick={() => { if (videoRef.current) videoRef.current.currentTime = Math.max(videoRef.current.currentTime - 10, 0) }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-4.99" /></svg>
-            <span style={{ fontSize: '9px', marginLeft: '-2px', marginTop: '1px' }}>10</span>
           </button>
 
           {/* Volume */}
-          <div className="flex items-center gap-1 sm:gap-2 group/vol">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => { const v = videoRef.current; if(v){ v.muted = !v.muted; setMuted(v.muted) }}}
               className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
@@ -460,7 +531,7 @@ export function Watch() {
             <input
               type="range" min={0} max={1} step={0.02} value={muted ? 0 : volume}
               onChange={(e) => { const v = Number(e.target.value); setVolume(v); if(videoRef.current){ videoRef.current.volume = v; videoRef.current.muted = v === 0 }}}
-              className="hidden sm:block w-18 h-1 cursor-pointer"
+              className="hidden sm:block h-1 cursor-pointer"
               style={{ accentColor: 'var(--color-gold)', width: '72px' }}
             />
           </div>
@@ -472,7 +543,7 @@ export function Watch() {
 
           <div className="flex-1" />
 
-          {/* Active quality badge */}
+          {/* Active quality chip */}
           {qualities.length > 0 && (
             <span
               className="hidden sm:block text-[10px] font-semibold px-2 py-0.5 rounded cursor-pointer flex-shrink-0"
@@ -494,11 +565,7 @@ export function Watch() {
             className="flex-shrink-0 transition-colors"
             style={{ color: showSettings ? 'var(--color-gold)' : 'rgba(255,255,255,0.65)' }}
           >
-            <svg
-              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-              className={showSettings ? 'animate-spin' : ''}
-              style={{ animationDuration: '3s' }}
-            >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
             </svg>
           </button>

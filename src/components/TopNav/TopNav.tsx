@@ -140,7 +140,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         {/* Profile panel */}
         {showProfile && (
           <div
-            className="absolute right-0 top-full mt-2 rounded-xl z-50 overflow-hidden"
+            className="absolute right-0 top-full mt-2 rounded-xl z-[200] overflow-hidden"
             style={{
               width: '280px',
               background: '#111',
