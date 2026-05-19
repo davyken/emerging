@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getChannels, getEPG } from '../../services/xg2gApi'
 import type { Channel, EPGProgram } from '../../types/xg2g'
-
-const CATEGORIES = ['Toutes les chaînes', 'Divertissement', 'Sport', 'Actualités', 'Films', 'Documentaires', 'Enfants']
+import { useLanguage } from '../../i18n/LanguageContext'
 
 const MOCK_CHANNELS: Channel[] = [
   { id: 'bbc', name: 'BBC One HD', group: 'Actualités', streamUrl: '#', logo: '' },
@@ -18,7 +17,7 @@ const MOCK_EPG: Record<string, EPGProgram[]> = {
   bbc: [{ channelId: 'bbc', title: 'Midland du Matin', description: '', start: new Date(Date.now() - 30 * 60000).toISOString(), stop: new Date(Date.now() + 60 * 60000).toISOString() }],
   hbo: [{ channelId: 'hbo', title: 'House of the Dragon', description: '', start: new Date(Date.now() - 20 * 60000).toISOString(), stop: new Date(Date.now() + 100 * 60000).toISOString() }],
   sky: [{ channelId: 'sky', title: 'Premier League · Man...', description: '', start: new Date(Date.now() - 10 * 60000).toISOString(), stop: new Date(Date.now() + 80 * 60000).toISOString() }],
-  nat: [{ channelId: 'nat', title: 'Les Mystères de l\'Océan - en fo...', description: '', start: new Date(Date.now() - 5 * 60000).toISOString(), stop: new Date(Date.now() + 55 * 60000).toISOString() }],
+  nat: [{ channelId: 'nat', title: "Les Mystères de l'Océan", description: '', start: new Date(Date.now() - 5 * 60000).toISOString(), stop: new Date(Date.now() + 55 * 60000).toISOString() }],
   mar: [{ channelId: 'mar', title: 'Avengers: Endgame', description: '', start: new Date(Date.now() - 60 * 60000).toISOString(), stop: new Date(Date.now() + 120 * 60000).toISOString() }],
   mtv: [{ channelId: 'mtv', title: 'Classement Top 40', description: '', start: new Date(Date.now() - 15 * 60000).toISOString(), stop: new Date(Date.now() + 45 * 60000).toISOString() }],
 }
@@ -26,8 +25,10 @@ const MOCK_EPG: Record<string, EPGProgram[]> = {
 const UPCOMING = [
   { id: 'war', title: 'Guerres Intergalactiq...', badge: 'DANS 45MIN', badgeColor: 'var(--color-teal)', gradient: 'linear-gradient(135deg,#0a0a1a,#1a1a5a,#0d0d3a)', desc: 'Débute dans 45mn sur Sci-Fi Channel HD' },
   { id: 'hod', title: 'House of the Dragon', badge: 'SPORT', badgeColor: '#e05a00', gradient: 'linear-gradient(135deg,#1a0800,#4a1500,#2a0a00)', desc: '' },
-  { id: 'act', title: 'Actualités', badge: 'ACTUALITÉS', badgeColor: '#0060c0', gradient: 'linear-gradient(135deg,#001020,#002060,#001030)', desc: '' },
+  { id: 'act', title: 'Actualités', badge: 'NEWS', badgeColor: '#0060c0', gradient: 'linear-gradient(135deg,#001020,#002060,#001030)', desc: '' },
 ]
+
+const FR_GROUP_KEYS = ['all', 'Divertissement', 'Sport', 'Actualités', 'Films', 'Documentaires', 'Enfants']
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -47,9 +48,10 @@ function ChannelProgress({ start, stop }: { start: string; stop: string }) {
 
 export function TVGuide() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [channels, setChannels] = useState<Channel[]>(MOCK_CHANNELS)
   const [epg, setEpg] = useState<Record<string, EPGProgram[]>>(MOCK_EPG)
-  const [activeCategory, setActiveCategory] = useState('Toutes les chaînes')
+  const [categoryIndex, setCategoryIndex] = useState(0)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   useEffect(() => {
@@ -62,9 +64,9 @@ export function TVGuide() {
   }, [])
 
   const filtered =
-    activeCategory === 'Toutes les chaînes'
+    categoryIndex === 0
       ? channels
-      : channels.filter((c) => c.group === activeCategory)
+      : channels.filter((c) => c.group === FR_GROUP_KEYS[categoryIndex])
 
   function currentProg(channelId: string): EPGProgram | undefined {
     const now = Date.now()
@@ -78,16 +80,16 @@ export function TVGuide() {
       <div className="flex">
         {/* Category sidebar */}
         <div className="flex-shrink-0 px-3 py-5" style={{ width: '180px', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
-          <p className="text-[10px] tracking-widest uppercase mb-3 px-2" style={{ color: '#555' }}>Catégories</p>
-          {CATEGORIES.map((cat) => (
+          <p className="text-[10px] tracking-widest uppercase mb-3 px-2" style={{ color: '#555' }}>{t.tvGuide.categoriesLabel}</p>
+          {t.tvGuide.categoryList.map((cat, idx) => (
             <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
+              key={idx}
+              onClick={() => setCategoryIndex(idx)}
               className="w-full text-left text-xs px-3 py-2.5 rounded-lg mb-0.5 transition-all font-medium"
               style={{
-                color: activeCategory === cat ? 'white' : '#666',
-                background: activeCategory === cat ? 'rgba(201,168,76,0.15)' : 'transparent',
-                borderLeft: activeCategory === cat ? '2px solid var(--color-gold)' : '2px solid transparent',
+                color: categoryIndex === idx ? 'white' : '#666',
+                background: categoryIndex === idx ? 'rgba(201,168,76,0.15)' : 'transparent',
+                borderLeft: categoryIndex === idx ? '2px solid var(--color-gold)' : '2px solid transparent',
               }}
             >
               {cat}
@@ -99,7 +101,7 @@ export function TVGuide() {
         <div className="flex-1 p-6">
           {/* Channels header */}
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-base font-bold text-white">Chaînes en direct</h2>
+            <h2 className="text-base font-bold text-white">{t.tvGuide.liveChannels}</h2>
             <div className="flex gap-1">
               <button onClick={() => setViewMode('grid')} className="p-2 rounded-lg transition-colors" style={{ background: viewMode === 'grid' ? 'rgba(255,255,255,0.1)' : 'transparent', color: viewMode === 'grid' ? 'white' : '#555' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
@@ -150,9 +152,9 @@ export function TVGuide() {
             })}
           </div>
 
-          {/* À suivre dans 1 heure */}
+          {/* Coming up */}
           <div className="mb-6">
-            <h2 className="text-base font-bold text-white mb-5">À suivre dans 1 heure</h2>
+            <h2 className="text-base font-bold text-white mb-5">{t.tvGuide.comingUp}</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {UPCOMING.map((item, i) => (
                 <div key={item.id} className={`rounded-xl overflow-hidden relative cursor-pointer group ${i === 0 ? 'md:col-span-1 md:row-span-1' : ''}`} style={{ aspectRatio: i === 0 ? '4/3' : '16/9', background: item.gradient }}>

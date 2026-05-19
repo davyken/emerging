@@ -1,8 +1,10 @@
 import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 export function Login() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -13,7 +15,6 @@ export function Login() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setLoading(true)
-    // Navigate directly — no backend yet
     setTimeout(() => navigate('/accueil'), 600)
   }
 
@@ -32,7 +33,6 @@ export function Login() {
 
       {/* Corridor pillars / depth lines */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Left perspective lines */}
         {[...Array(5)].map((_, i) => (
           <div
             key={`l${i}`}
@@ -45,7 +45,6 @@ export function Login() {
             }}
           />
         ))}
-        {/* Right perspective lines */}
         {[...Array(5)].map((_, i) => (
           <div
             key={`r${i}`}
@@ -58,7 +57,6 @@ export function Login() {
             }}
           />
         ))}
-        {/* Central warm glow */}
         <div
           className="absolute left-1/2 -translate-x-1/2"
           style={{
@@ -82,7 +80,7 @@ export function Login() {
           {/* Email / Username */}
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              Email ou Nom d'utilisateur
+              {t.login.emailLabel}
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
@@ -93,7 +91,7 @@ export function Login() {
               <input
                 className="auth-input"
                 type="text"
-                placeholder="Entrez votre identifiant"
+                placeholder={t.login.emailPlaceholder}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
@@ -105,14 +103,14 @@ export function Login() {
           <div>
             <div className="flex justify-between mb-1.5">
               <label className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Mot de passe
+                {t.login.passwordLabel}
               </label>
               <button
                 type="button"
                 className="text-xs hover:underline"
                 style={{ color: 'var(--color-gold)' }}
               >
-                Mot de passe oublié ?
+                {t.login.forgotPassword}
               </button>
             </div>
             <div className="relative">
@@ -160,39 +158,37 @@ export function Login() {
               className="w-3.5 h-3.5 rounded accent-[#C9A84C]"
             />
             <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              Se souvenir de moi
+              {t.login.rememberMe}
             </span>
           </label>
 
           {/* Submit */}
           <button type="submit" disabled={loading} className="auth-btn mt-1">
-            {loading ? 'Connexion…' : 'Se connecter'}
+            {loading ? t.login.signingIn : t.login.signIn}
           </button>
         </form>
 
         {/* Register links */}
         <p className="text-center text-xs mt-6" style={{ color: 'var(--color-text-muted)' }}>
-          Pas encore de compte ?{' '}
+          {t.login.noAccount}{' '}
           <Link to="/register" className="font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>
-            Créer un compte
+            {t.login.createAccount}
           </Link>
         </p>
         <p className="text-center text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
-          Invitation exclusive ?{' '}
+          {t.login.exclusiveInvite}{' '}
           <Link to="/invite" className="font-semibold hover:underline" style={{ color: 'var(--color-teal)' }}>
-            Activer ici
+            {t.login.activateHere}
           </Link>
         </p>
 
         {/* Social icons */}
         <div className="flex justify-center gap-4 mt-5">
-          {/* Apple */}
           <button className="text-gray-600 hover:text-gray-400 transition-colors">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
             </svg>
           </button>
-          {/* Phone */}
           <button className="text-gray-600 hover:text-gray-400 transition-colors">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
@@ -203,7 +199,7 @@ export function Login() {
 
         {/* Copyright */}
         <p className="text-center mt-8 text-[10px] tracking-widest uppercase" style={{ color: 'var(--color-text-dim)' }}>
-          © 2025 EmergingStream Global Entertainment
+          {t.login.copyright}
         </p>
       </div>
     </div>

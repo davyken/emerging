@@ -1,8 +1,10 @@
 import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 export function Register() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -14,11 +16,11 @@ export function Register() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (password !== confirm) {
-      setError('Les mots de passe ne correspondent pas.')
+      setError(t.registerInvite.passwordMismatch)
       return
     }
     if (!accepted) {
-      setError("Vous devez accepter les conditions d'utilisation.")
+      setError(t.registerInvite.mustAcceptTerms)
       return
     }
     setError(null)
@@ -38,7 +40,6 @@ export function Register() {
         }}
       />
 
-      {/* Cinema seat rows — diagonal lines suggesting an auditorium */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(12)].map((_, i) => (
           <div
@@ -52,7 +53,6 @@ export function Register() {
             }}
           />
         ))}
-        {/* Screen glow at top */}
         <div
           className="absolute left-1/2 -translate-x-1/2 -top-20"
           style={{
@@ -61,7 +61,6 @@ export function Register() {
             background: 'radial-gradient(ellipse, rgba(201,168,76,0.08) 0%, transparent 70%)',
           }}
         />
-        {/* Vignette overlay */}
         <div
           className="absolute inset-0"
           style={{
@@ -77,10 +76,11 @@ export function Register() {
           <div className="flex justify-center mb-3">
             <img src="/logo.png" alt="EmergingStream" style={{ width: '200px', height: 'auto' }} />
           </div>
-          <p className="text-white font-semibold text-base mb-1">Bienvenue dans l'Exclusivité</p>
+          <p className="text-white font-semibold text-base mb-1">{t.registerInvite.welcome}</p>
           <p className="text-xs leading-relaxed px-4" style={{ color: 'var(--color-text-muted)' }}>
-            Vous avez été invité à rejoindre{' '}
-            <span style={{ color: 'var(--color-gold)' }}>EmergingStream</span>, la destination ultime du cinéma privé.
+            {t.registerInvite.invitedTo}{' '}
+            <span style={{ color: 'var(--color-gold)' }}>EmergingStream</span>
+            {t.registerInvite.invitedSuffix}
           </p>
         </div>
 
@@ -94,7 +94,7 @@ export function Register() {
               letterSpacing: '0.05em',
             }}
           >
-            ✦ OFFRE EXCLUSIVE - ESSAI GRATUIT 24H
+            {t.registerInvite.badge}
           </span>
         </div>
 
@@ -107,7 +107,7 @@ export function Register() {
           {/* Full name */}
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              Nom complet
+              {t.registerInvite.fullName}
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
@@ -129,7 +129,7 @@ export function Register() {
           {/* Email */}
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-              Adresse Email
+              {t.registerInvite.emailAddress}
             </label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
@@ -153,7 +153,7 @@ export function Register() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-                Mot de passe
+                {t.registerInvite.password}
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
@@ -176,7 +176,7 @@ export function Register() {
 
             <div>
               <label className="block text-xs mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-                Confirmation
+                {t.registerInvite.confirm}
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
@@ -206,7 +206,7 @@ export function Register() {
               className="mt-0.5 flex-shrink-0 w-3.5 h-3.5 rounded accent-[#C9A84C]"
             />
             <span className="text-[11px] leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-              J'accepte les conditions d'utilisation et je souhaite activer mon essai gratuit de 24 heures immédiatement après l'inscription.
+              {t.registerInvite.termsText}
             </span>
           </label>
 
@@ -214,15 +214,15 @@ export function Register() {
 
           {/* Submit */}
           <button type="submit" disabled={loading} className="auth-btn mt-1">
-            {loading ? 'Création…' : <>CRÉER MON COMPTE &nbsp;→</>}
+            {loading ? t.registerInvite.creating : t.registerInvite.createAccount}
           </button>
         </form>
 
         {/* Login link */}
         <p className="text-center text-xs mt-5" style={{ color: 'var(--color-text-muted)' }}>
-          Vous avez déjà un compte ?{' '}
+          {t.registerInvite.alreadyAccount}{' '}
           <Link to="/login" className="font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>
-            Se connecter
+            {t.registerInvite.signIn}
           </Link>
         </p>
 
@@ -232,7 +232,7 @@ export function Register() {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            <span className="text-[10px] tracking-widest uppercase" style={{ color: '#555' }}>Sécurisé SSL</span>
+            <span className="text-[10px] tracking-widest uppercase" style={{ color: '#555' }}>{t.registerInvite.sslSecured}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">

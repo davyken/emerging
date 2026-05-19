@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getRecentlyAdded, getLibraries, getLibraryItems, getThumbUrl } from '../../services/plexApi'
 import { useAuthStore } from '../../store/authStore'
 import type { PlexMedia } from '../../types/plex'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 const GRADIENTS = [
   'linear-gradient(135deg,#0a1628,#1a4a8c,#0d2b5c)',
@@ -53,15 +54,16 @@ interface SectionRowProps {
   title: string
   items: PlexMedia[]
   token: string
+  viewAllLabel: string
 }
 
-function SectionRow({ title, items, token }: SectionRowProps) {
+function SectionRow({ title, items, token, viewAllLabel }: SectionRowProps) {
   if (items.length === 0) return null
   return (
     <section className="mb-10">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-white">{title}</h2>
-        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>Tout voir</button>
+        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{viewAllLabel}</button>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
         {items.slice(0, 12).map((m, i) => (
@@ -74,6 +76,7 @@ function SectionRow({ title, items, token }: SectionRowProps) {
 
 export function Dashboard() {
   const token = useAuthStore((s) => s.token) ?? ''
+  const { t } = useLanguage()
   const [recent, setRecent] = useState<PlexMedia[]>([])
   const [trending, setTrending] = useState<PlexMedia[]>([])
   const [african, setAfrican] = useState<PlexMedia[]>([])
@@ -117,7 +120,6 @@ export function Dashboard() {
             `,
           }}
         />
-        {/* Building silhouettes */}
         <div className="absolute inset-0 overflow-hidden" style={{ pointerEvents: 'none' }}>
           {[40, 48, 55, 62, 68, 74].map((left, i) => (
             <div key={i} className="absolute bottom-0" style={{ left: `${left}%`, width: `${12 + i * 3}px`, height: `${40 + i * 5}%`, background: 'linear-gradient(to top, #050300 0%, #100800 70%, transparent 100%)', borderRadius: '3px 3px 0 0' }} />
@@ -128,13 +130,13 @@ export function Dashboard() {
 
         <div className="relative z-10 px-8 pt-16 pb-12 max-w-xl">
           <div className="inline-flex items-center gap-2 mb-4">
-            <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: 'var(--color-teal)', color: '#000' }}>★ ORIGINAL EN TENDANCE</span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: 'var(--color-teal)', color: '#000' }}>{t.dashboard.trendingBadge}</span>
           </div>
           <h1 className="text-4xl font-black mb-3 leading-tight" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            {hero?.title ?? "L'ASCENSION DE KAIRO"}
+            {hero?.title ?? t.dashboard.heroTitle}
           </h1>
           <p className="text-sm leading-relaxed mb-6 max-w-md" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            {hero?.summary ?? "Dans un Lagos du futur proche, un architecte brillant découvre une conspiration qui menace de réécrire l'histoire du continent, son chef-d'œuvre allant allier technologie et tradition."}
+            {hero?.summary ?? t.dashboard.heroDesc}
           </p>
           <div className="flex gap-3">
             <Link
@@ -143,10 +145,10 @@ export function Dashboard() {
               style={{ background: 'var(--color-gold)', color: '#000' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-              Regarder
+              {t.dashboard.watch}
             </Link>
             <button className="flex items-center gap-2 font-semibold px-5 py-2.5 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.15)' }}>
-              Plus d'info
+              {t.dashboard.moreInfo}
             </button>
           </div>
         </div>
@@ -161,22 +163,21 @@ export function Dashboard() {
         ) : (
           <>
             {trending.length > 0 ? (
-              <SectionRow title="Tendances" items={trending} token={token} />
+              <SectionRow title={t.dashboard.trending} items={trending} token={token} viewAllLabel={t.dashboard.viewAll} />
             ) : (
-              <FallbackRow title="Tendances" />
+              <FallbackRow title={t.dashboard.trending} viewAllLabel={t.dashboard.viewAll} />
             )}
 
-            {/* Originaux Africains feature */}
             {african.length > 0 ? (
-              <AfricanOriginalsSection items={african} token={token} />
+              <AfricanOriginalsSection items={african} token={token} title={t.dashboard.africanOriginals} viewAllLabel={t.dashboard.viewAll} />
             ) : (
-              <FallbackAfricanSection />
+              <FallbackAfricanSection title={t.dashboard.africanOriginals} viewAllLabel={t.dashboard.viewAll} />
             )}
 
             {recent.length > 0 ? (
-              <SectionRow title="Ajoutés récemment" items={recent} token={token} />
+              <SectionRow title={t.dashboard.recentlyAdded} items={recent} token={token} viewAllLabel={t.dashboard.viewAll} />
             ) : (
-              <FallbackRow title="Ajoutés récemment" />
+              <FallbackRow title={t.dashboard.recentlyAdded} viewAllLabel={t.dashboard.viewAll} />
             )}
           </>
         )}
@@ -185,14 +186,14 @@ export function Dashboard() {
   )
 }
 
-function FallbackRow({ title }: { title: string }) {
+function FallbackRow({ title, viewAllLabel }: { title: string; viewAllLabel: string }) {
   const placeholders = ['Shadow of the Void', 'Midnight Echoes', 'Velocity Prime', 'Ancient Relics']
   const grads = ['linear-gradient(135deg,#0a1628,#1a4a8c)', 'linear-gradient(135deg,#1a0a00,#5a2500)', 'linear-gradient(135deg,#001a10,#004a2d)', 'linear-gradient(135deg,#1a1000,#5a4000)']
   return (
     <section className="mb-10">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-white">{title}</h2>
-        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>Tout voir</button>
+        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{viewAllLabel}</button>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {placeholders.map((t, i) => (
@@ -207,17 +208,16 @@ function FallbackRow({ title }: { title: string }) {
   )
 }
 
-function AfricanOriginalsSection({ items, token }: { items: PlexMedia[]; token: string }) {
+function AfricanOriginalsSection({ items, token, title, viewAllLabel }: { items: PlexMedia[]; token: string; title: string; viewAllLabel: string }) {
   const featured = items[0]
   const others = items.slice(1, 4)
   return (
     <section className="mb-10">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-bold text-white">Originaux Africains</h2>
-        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>Tout voir</button>
+        <h2 className="text-base font-bold text-white">{title}</h2>
+        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{viewAllLabel}</button>
       </div>
       <div className="grid grid-cols-3 gap-3" style={{ gridTemplateRows: 'auto' }}>
-        {/* Featured */}
         <Link to={`/media/${featured.ratingKey}`} className="col-span-1 row-span-2 group cursor-pointer">
           <div className="rounded-xl overflow-hidden relative" style={{ aspectRatio: '3/4', background: 'linear-gradient(135deg,#1a0800,#4a2000,#8b4500)' }}>
             {featured.thumb && <img src={getThumbUrl(token, featured.thumb)} alt={featured.title} className="w-full h-full object-cover" loading="lazy" />}
@@ -242,7 +242,7 @@ function AfricanOriginalsSection({ items, token }: { items: PlexMedia[]; token: 
   )
 }
 
-function FallbackAfricanSection() {
+function FallbackAfricanSection({ title, viewAllLabel }: { title: string; viewAllLabel: string }) {
   const items = [
     { title: 'Fils du Soleil', desc: "Découvrez l'histoire secrète du grand Mansa Musa dans cette épopée historique à gros budget.", gradient: 'linear-gradient(135deg,#1a0800,#6a3000,#8b4000)', featured: true },
     { title: 'Kemet Rising', gradient: 'linear-gradient(135deg,#1a0500,#5a1000,#2a0a00)', featured: false },
@@ -252,8 +252,8 @@ function FallbackAfricanSection() {
   return (
     <section className="mb-10">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-bold text-white">Originaux Africains</h2>
-        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>Tout voir</button>
+        <h2 className="text-base font-bold text-white">{title}</h2>
+        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{viewAllLabel}</button>
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-1 row-span-2 rounded-xl overflow-hidden relative cursor-pointer group" style={{ aspectRatio: '3/4', background: items[0].gradient }}>

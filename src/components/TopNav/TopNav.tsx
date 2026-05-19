@@ -1,15 +1,17 @@
 import { NavLink } from 'react-router-dom'
-
-const NAV_LINKS = [
-  { to: '/accueil', label: 'Home' },
-  { to: '/films', label: 'Films' },
-  { to: '/series', label: 'TV Shows' },
-  { to: '/direct', label: 'Live TV' },
-  { to: '/ma-liste', label: 'My List' },
-]
+import { useLanguage } from '../../i18n/LanguageContext'
 
 export function TopNav() {
+  const { t, lang, toggle } = useLanguage()
   const initial = 'U'
+
+  const NAV_LINKS = [
+    { to: '/accueil', label: t.topNav.home },
+    { to: '/films', label: t.topNav.films },
+    { to: '/series', label: t.topNav.tvShows },
+    { to: '/direct', label: t.topNav.liveTV },
+    { to: '/ma-liste', label: t.topNav.myList },
+  ]
 
   return (
     <div
@@ -45,7 +47,7 @@ export function TopNav() {
       <div className="relative">
         <input
           type="text"
-          placeholder="Search..."
+          placeholder={t.topNav.search}
           className="text-xs pl-7 pr-3 py-1.5 rounded-lg outline-none w-32 focus:w-44 transition-all"
           style={{
             background: 'rgba(255,255,255,0.07)',
@@ -57,6 +59,16 @@ export function TopNav() {
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
         </svg>
       </div>
+
+      {/* Language toggle */}
+      <button
+        onClick={toggle}
+        className="text-xs font-bold px-2 py-1 rounded-md transition-colors"
+        style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.25)', letterSpacing: '0.05em' }}
+        title={lang === 'en' ? 'Switch to French' : 'Passer en anglais'}
+      >
+        {lang === 'en' ? 'FR' : 'EN'}
+      </button>
 
       {/* Bell */}
       <button className="text-gray-500 hover:text-white transition-colors">

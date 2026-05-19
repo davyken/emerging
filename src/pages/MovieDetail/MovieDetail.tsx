@@ -4,6 +4,7 @@ import { getMediaDetail, getThumbUrl, getDownloadUrl } from '../../services/plex
 import { useAuthStore } from '../../store/authStore'
 import type { PlexMedia } from '../../types/plex'
 import { useMealImages } from '../../hooks/useMealImages'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 type Tab = 'episodes' | 'related' | 'trailers'
 
@@ -33,6 +34,7 @@ export function MovieDetail() {
   const token = useAuthStore((s) => s.token) ?? ''
   const navigate = useNavigate()
   const { img } = useMealImages()
+  const { t } = useLanguage()
 
   const [media, setMedia] = useState<PlexMedia>(MOCK)
   const [loading, setLoading] = useState(true)
@@ -58,6 +60,13 @@ export function MovieDetail() {
 
   const thumbSrc = media.thumb ? getThumbUrl(token, media.thumb) : img(80)
 
+  const TECH_SPECS = [
+    { label: t.movieDetail.resolution, value: '4K UHD (2160p)' },
+    { label: t.movieDetail.dynamicRange, value: 'Dolby Vision / HDR10+' },
+    { label: t.movieDetail.audio, value: 'Dolby Atmos 7.1' },
+    { label: t.movieDetail.aspectRatio, value: '2.39:1 (Cinemascope)' },
+  ]
+
   return (
     <div className="min-h-screen" style={{ background: '#0a0a0a', color: 'white' }}>
       {/* Hero section */}
@@ -68,7 +77,6 @@ export function MovieDetail() {
           borderBottom: '1px solid rgba(255,255,255,0.06)',
         }}
       >
-        {/* Ambient glow */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div style={{ position: 'absolute', top: '-20%', right: '20%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 70%)', borderRadius: '50%' }} />
         </div>
@@ -88,7 +96,6 @@ export function MovieDetail() {
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            {/* Genre tags */}
             <div className="flex gap-2 mb-3 flex-wrap">
               {(media.Genre ?? [{ tag: 'Sci-Fi' }, { tag: 'Adventure' }, { tag: 'Mystery' }]).map((g) => (
                 <span key={g.tag} className="text-xs font-medium" style={{ color: 'var(--color-gold)' }}>
@@ -131,7 +138,7 @@ export function MovieDetail() {
                 style={{ background: 'var(--color-gold)', color: '#000' }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-                Play Movie
+                {t.movieDetail.playMovie}
               </button>
               <button
                 onClick={() => setShowDownload(true)}
@@ -139,7 +146,7 @@ export function MovieDetail() {
                 style={{ background: 'rgba(255,255,255,0.08)', color: 'white', border: '1px solid rgba(255,255,255,0.12)' }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3" /></svg>
-                Download
+                {t.movieDetail.download}
               </button>
               <button className="flex items-center justify-center w-10 h-10 rounded-lg transition-colors" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
@@ -149,15 +156,15 @@ export function MovieDetail() {
             {/* Credits */}
             <div className="grid grid-cols-3 gap-6">
               <div>
-                <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: '#555' }}>Director</p>
+                <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: '#555' }}>{t.movieDetail.director}</p>
                 <p className="text-sm text-white">{media.Director?.[0]?.tag ?? 'Elena Vance'}</p>
               </div>
               <div>
-                <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: '#555' }}>Studio</p>
+                <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: '#555' }}>{t.movieDetail.studio}</p>
                 <p className="text-sm text-white">Nebula Films</p>
               </div>
               <div>
-                <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: '#555' }}>Cast</p>
+                <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: '#555' }}>{t.movieDetail.cast}</p>
                 <p className="text-sm text-white line-clamp-2">
                   {media.Role?.slice(0, 3).map(r => r.tag).join(', ') ?? 'Julian Thorne, Alara Ress, Marcus Welby, Sarah J. Parker'}
                 </p>
@@ -170,20 +177,23 @@ export function MovieDetail() {
       {/* Tabs */}
       <div className="px-8 pt-6">
         <div className="flex items-center gap-0 mb-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          {(['episodes', 'related', 'trailers'] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className="px-5 pb-3 text-xs font-semibold uppercase tracking-wider transition-colors"
-              style={{
-                color: tab === t ? 'white' : '#555',
-                borderBottom: tab === t ? '2px solid var(--color-gold)' : '2px solid transparent',
-                marginBottom: '-1px',
-              }}
-            >
-              {t === 'episodes' ? 'Épisodes' : t === 'related' ? 'Contenu lié' : 'Bandes-annonces'}
-            </button>
-          ))}
+          {(['episodes', 'related', 'trailers'] as Tab[]).map((tabKey) => {
+            const label = tabKey === 'episodes' ? t.movieDetail.episodes : tabKey === 'related' ? t.movieDetail.related : t.movieDetail.trailers
+            return (
+              <button
+                key={tabKey}
+                onClick={() => setTab(tabKey)}
+                className="px-5 pb-3 text-xs font-semibold uppercase tracking-wider transition-colors"
+                style={{
+                  color: tab === tabKey ? 'white' : '#555',
+                  borderBottom: tab === tabKey ? '2px solid var(--color-gold)' : '2px solid transparent',
+                  marginBottom: '-1px',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
           <div className="flex-1" />
           {tab === 'episodes' && (
             <select
@@ -193,7 +203,7 @@ export function MovieDetail() {
               style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
             >
               {[1, 2, 3].map((s) => (
-                <option key={s} value={s}>Saison {String(s).padStart(2, '0')}</option>
+                <option key={s} value={s}>{t.movieDetail.season} {String(s).padStart(2, '0')}</option>
               ))}
             </select>
           )}
@@ -231,14 +241,9 @@ export function MovieDetail() {
         {/* Technical Specs + Subtitles */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-12">
           <div>
-            <h3 className="text-sm font-bold text-white mb-4">Technical Specs</h3>
+            <h3 className="text-sm font-bold text-white mb-4">{t.movieDetail.technicalSpecs}</h3>
             <div className="grid grid-cols-2 gap-y-4">
-              {[
-                { label: 'Resolution', value: '4K UHD (2160p)' },
-                { label: 'Dynamic Range', value: 'Dolby Vision / HDR10+' },
-                { label: 'Audio', value: 'Dolby Atmos 7.1' },
-                { label: 'Aspect Ratio', value: '2.39:1 (Cinemascope)' },
-              ].map((s) => (
+              {TECH_SPECS.map((s) => (
                 <div key={s.label}>
                   <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: '#555' }}>{s.label}</p>
                   <p className="text-sm text-white">{s.value}</p>
@@ -248,7 +253,7 @@ export function MovieDetail() {
           </div>
           <div>
             <div className="mb-5">
-              <h3 className="text-sm font-bold text-white mb-3">Available Subtitles</h3>
+              <h3 className="text-sm font-bold text-white mb-3">{t.movieDetail.availableSubtitles}</h3>
               <div className="flex flex-wrap gap-2">
                 {['English (CC)', 'French', 'Spanish', 'German', 'Japanese', 'Italian'].map((sub) => (
                   <span key={sub} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.08)', color: '#ccc' }}>{sub}</span>
@@ -256,7 +261,7 @@ export function MovieDetail() {
               </div>
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white mb-3">Languages</h3>
+              <h3 className="text-sm font-bold text-white mb-3">{t.movieDetail.languages}</h3>
               <p className="text-sm" style={{ color: '#999' }}>English (Original), French, Spanish (Latin America)</p>
             </div>
           </div>
@@ -267,7 +272,7 @@ export function MovieDetail() {
       {showDownload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.75)' }} onClick={() => setShowDownload(false)}>
           <div className="w-full max-w-xs rounded-xl p-6" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)' }} onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-white font-semibold mb-4">Choisir la qualité</h3>
+            <h3 className="text-white font-semibold mb-4">{t.movieDetail.chooseQuality}</h3>
             <div className="flex flex-col gap-2">
               {['1080p', '720p', '480p', '360p'].map((q) => (
                 <a key={q} href={getDownloadUrl(token, media.ratingKey, q)} download className="flex items-center justify-between px-4 py-3 rounded-lg transition-colors" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'white' }}>
@@ -276,7 +281,7 @@ export function MovieDetail() {
                 </a>
               ))}
             </div>
-            <button onClick={() => setShowDownload(false)} className="mt-4 w-full text-xs transition-colors" style={{ color: '#555' }}>Annuler</button>
+            <button onClick={() => setShowDownload(false)} className="mt-4 w-full text-xs transition-colors" style={{ color: '#555' }}>{t.movieDetail.cancel}</button>
           </div>
         </div>
       )}

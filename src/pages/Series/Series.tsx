@@ -4,8 +4,7 @@ import { getLibraries, getLibraryItems, getThumbUrl } from '../../services/plexA
 import { useAuthStore } from '../../store/authStore'
 import type { PlexMedia } from '../../types/plex'
 import { useMealImages } from '../../hooks/useMealImages'
-
-const CATEGORIES = ['All Series', 'Drama', 'Sci-Fi', 'Thriller', 'Comedy', 'Animation', 'Documentary']
+import { useLanguage } from '../../i18n/LanguageContext'
 
 const MOCK_SERIES = [
   { id: 's1', title: 'Kairo Chronicles', seasons: 3, rating: 9.1, genre: 'Sci-Fi', g: 'linear-gradient(160deg,#0a1628,#1a4a8c,#0d2040)', episodes: 24 },
@@ -25,7 +24,8 @@ const MOCK_SERIES = [
 export function Series() {
   const token = useAuthStore((s) => s.token) ?? ''
   const { img } = useMealImages()
-  const [category, setCategory] = useState('All Series')
+  const { t } = useLanguage()
+  const [categoryIndex, setCategoryIndex] = useState(0)
   const [items, setItems] = useState<PlexMedia[]>([])
   const [loaded, setLoaded] = useState(false)
 
@@ -50,17 +50,17 @@ export function Series() {
     <div className="min-h-full p-6" style={{ background: '#0a0a0a' }}>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-xl font-black text-white mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>Séries TV</h1>
+        <h1 className="text-xl font-black text-white mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>{t.series.title}</h1>
         <div className="flex gap-2 flex-wrap">
-          {CATEGORIES.map((cat) => (
+          {t.series.categories.map((cat, idx) => (
             <button
-              key={cat}
-              onClick={() => setCategory(cat)}
+              key={idx}
+              onClick={() => setCategoryIndex(idx)}
               className="text-xs font-medium px-4 py-1.5 rounded-full transition-all"
               style={{
-                background: category === cat ? 'var(--color-gold)' : 'rgba(255,255,255,0.07)',
-                color: category === cat ? '#000' : '#888',
-                border: category === cat ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                background: categoryIndex === idx ? 'var(--color-gold)' : 'rgba(255,255,255,0.07)',
+                color: categoryIndex === idx ? '#000' : '#888',
+                border: categoryIndex === idx ? 'none' : '1px solid rgba(255,255,255,0.08)',
               }}
             >
               {cat}
@@ -74,16 +74,16 @@ export function Series() {
         {img(50) && <img src={img(50)} alt="Featured" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)' }} />
         <div className="relative z-10 h-full flex flex-col justify-end p-6">
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded mb-2 self-start" style={{ background: 'var(--color-teal)', color: '#000' }}>SÉRIE ORIGINALE</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded mb-2 self-start" style={{ background: 'var(--color-teal)', color: '#000' }}>{t.series.originalSeries}</span>
           <h2 className="text-2xl font-black text-white mb-1">Kairo Chronicles</h2>
-          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>3 Saisons • 24 Épisodes • ⭐ 9.1 • Sci-Fi</p>
+          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.series.seriesInfo}</p>
           <div className="flex gap-3">
             <Link to="/watch/s1" className="flex items-center gap-2 font-bold px-4 py-2 rounded-lg text-sm" style={{ background: 'var(--color-gold)', color: '#000' }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-              Play S1 E1
+              {t.series.playS1E1}
             </Link>
             <Link to="/media/s1" className="font-semibold px-4 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.12)', color: 'white' }}>
-              More Info
+              {t.series.moreInfo}
             </Link>
           </div>
         </div>
@@ -115,13 +115,17 @@ export function Series() {
                   {seasons && (
                     <div className="absolute bottom-2 left-2">
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.75)', color: 'rgba(255,255,255,0.7)' }}>
-                        {seasons} Season{seasons > 1 ? 's' : ''}
+                        {seasons} {seasons > 1 ? t.series.seasons : t.series.season}
                       </span>
                     </div>
                   )}
                 </div>
                 <p className="text-xs font-medium text-white mt-2 truncate">{title}</p>
-                {seasons && <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>{seasons} saison{seasons > 1 ? 's' : ''}</p>}
+                {seasons && (
+                  <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>
+                    {seasons} {seasons > 1 ? t.series.seasonsLabel : t.series.seasonLabel}
+                  </p>
+                )}
               </Link>
             )
           })}

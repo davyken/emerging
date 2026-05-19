@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore'
 import type { PlexMedia } from '../../types/plex'
 import { useMealImages } from '../../hooks/useMealImages'
 import { getMealImagePool, getRandomFeaturedShow, type FeaturedShow } from '../../services/mealDbApi'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 const GRADIENTS = [
   'linear-gradient(160deg,#0a1a2a,#1a4a6a,#0a2030)',
@@ -37,7 +38,7 @@ const MOCK_AFRICAN = [
 const MOCK_RECENT = [
   { id: 'r1', title: 'Abyssal Pulse', year: '4h 23m', rating: 'Thriller', gradient: GRADIENTS[5] },
   { id: 'r2', title: 'Nite Mast', year: '2h', rating: 'Action', gradient: GRADIENTS[6] },
-  { id: 'r3', title: 'Temporal Shift', year: '2h 10m', rating: 'Mystère', gradient: GRADIENTS[7] },
+  { id: 'r3', title: 'Temporal Shift', year: '2h 10m', rating: 'Mystery', gradient: GRADIENTS[7] },
 ]
 
 interface CardProps { id: string; title: string; gradient: string; token?: string; media?: PlexMedia; size?: 'sm' | 'md'; imgSrc?: string }
@@ -64,6 +65,7 @@ export function Accueil() {
   const token = useAuthStore((s) => s.token) ?? ''
   const navigate = useNavigate()
   const { img } = useMealImages()
+  const { t } = useLanguage()
   const [trending, setTrending] = useState<PlexMedia[]>([])
   const [recent, setRecent] = useState<PlexMedia[]>([])
   const [hero, setHero] = useState<PlexMedia | null>(null)
@@ -103,13 +105,11 @@ export function Accueil() {
 
       {/* HERO */}
       <div className="relative overflow-hidden" style={{ height: '52vh', minHeight: '340px' }}>
-        {/* Background image */}
         {heroImage
           ? <img src={heroImage} alt={heroTitle} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center top' }} />
           : <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 130% 80% at 65% 0%, #2a1500 0%, #8b4500 18%, #c46a00 28%, #6b3500 42%, #1a0800 60%, #0a0a0a 80%)' }} />
         }
 
-        {/* Cinematic overlays */}
         <div className="absolute inset-0" style={{
           background: 'linear-gradient(to right, rgba(10,10,10,0.93) 30%, rgba(10,10,10,0.55) 65%, rgba(10,10,10,0.15) 100%)'
         }} />
@@ -117,10 +117,9 @@ export function Accueil() {
           background: 'linear-gradient(to top, rgba(10,10,10,1) 0%, rgba(10,10,10,0.5) 35%, transparent 70%)'
         }} />
 
-        {/* Content */}
         <div className="relative z-10 h-full flex flex-col justify-end px-7 pb-8">
           <div className="inline-flex items-center gap-2 mb-3 flex-wrap">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: '#2a9a2a', color: 'white' }}>★ TRENDING ORIGINAL</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: '#2a9a2a', color: 'white' }}>{t.accueil.trendingBadge}</span>
             {heroGenre && <span className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>{heroGenre}</span>}
             {heroRating && <span className="text-[10px] font-bold" style={{ color: 'var(--color-gold)' }}>★ {Number(heroRating).toFixed(1)}</span>}
           </div>
@@ -137,7 +136,7 @@ export function Accueil() {
               style={{ background: 'var(--color-gold)', color: '#000' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-              Play Now
+              {t.accueil.playNow}
             </button>
             <button
               onClick={() => navigate(hero ? `/media/${hero.ratingKey}` : '/media/demo')}
@@ -145,7 +144,7 @@ export function Accueil() {
               style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.15)' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-              More Info
+              {t.accueil.moreInfo}
             </button>
           </div>
         </div>
@@ -154,8 +153,8 @@ export function Accueil() {
       {/* TRENDING NOW */}
       <div className="px-7 pt-7 pb-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-white">Trending Now</h2>
-          <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>View All</Link>
+          <h2 className="text-sm font-bold text-white">{t.accueil.trendingNow}</h2>
+          <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.accueil.viewAll}</Link>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
           {trending.length > 0
@@ -170,23 +169,17 @@ export function Accueil() {
       {/* AFRICAN ORIGINALS */}
       <div className="px-7 pb-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-white">African Originals</h2>
-          <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>View All</Link>
+          <h2 className="text-sm font-bold text-white">{t.accueil.africanOriginals}</h2>
+          <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.accueil.viewAll}</Link>
         </div>
         <div className="grid gap-3" style={{ gridTemplateColumns: '200px repeat(2, 1fr)', gridTemplateRows: 'auto auto' }}>
-          {/* Featured tall card */}
-          <Link
-            to={`/media/${MOCK_AFRICAN[0].id}`}
-            className="group cursor-pointer"
-            style={{ gridRow: '1 / 3' }}
-          >
+          <Link to={`/media/${MOCK_AFRICAN[0].id}`} className="group cursor-pointer" style={{ gridRow: '1 / 3' }}>
             <div className="rounded-xl overflow-hidden relative w-full h-full" style={{ minHeight: '260px', background: MOCK_AFRICAN[0].gradient }}>
               {img(10) && <img src={img(10)} alt={MOCK_AFRICAN[0].title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)' }} />
             </div>
           </Link>
 
-          {/* Top right cards */}
           {MOCK_AFRICAN.slice(1, 3).map((m, i) => (
             <Link key={m.id} to={`/media/${m.id}`} className="group cursor-pointer">
               <div className="rounded-xl overflow-hidden relative" style={{ aspectRatio: '16/10', background: m.gradient }}>
@@ -201,7 +194,6 @@ export function Accueil() {
             </Link>
           ))}
 
-          {/* Bottom right cards */}
           {MOCK_AFRICAN.slice(3, 5).map((m, i) => (
             <Link key={m.id} to={`/media/${m.id}`} className="group cursor-pointer">
               <div className="rounded-xl overflow-hidden relative" style={{ aspectRatio: '16/10', background: m.gradient }}>
@@ -221,8 +213,8 @@ export function Accueil() {
       {/* RECENTLY ADDED */}
       <div className="px-7 pb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-white">Recently Added</h2>
-          <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>View All</Link>
+          <h2 className="text-sm font-bold text-white">{t.accueil.recentlyAdded}</h2>
+          <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.accueil.viewAll}</Link>
         </div>
         <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
           {recent.length > 0

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 const SIMILAR = [
   { id: '1', title: 'Stellar Void', year: '2025', rating: '8.2', gradient: 'linear-gradient(135deg,#0a1628,#1a3a5c,#0d2b4a)' },
@@ -17,6 +18,7 @@ const CAST = [
 ]
 
 function NavBar() {
+  const { t, lang, toggle } = useLanguage()
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50 flex items-center gap-6 px-8 h-14"
@@ -24,7 +26,7 @@ function NavBar() {
     >
       <img src="/logo.png" alt="EmergingStream" className="flex-shrink-0" style={{ height: '28px', width: 'auto' }} />
       <nav className="flex items-center gap-5 flex-1">
-        {['Accueil', 'Films', 'Séries TV', 'Direct TV', 'Ma Liste'].map((item, i) => (
+        {t.landing.navItems.map((item, i) => (
           <a
             key={item}
             href="#"
@@ -39,7 +41,7 @@ function NavBar() {
         <div className="relative">
           <input
             type="text"
-            placeholder="Recherchez des titres..."
+            placeholder={t.landing.searchPlaceholder}
             className="text-sm text-white pl-8 pr-3 py-1.5 rounded-lg outline-none w-44"
             style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
           />
@@ -53,13 +55,21 @@ function NavBar() {
         <button className="text-gray-400 hover:text-white transition-colors">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" /></svg>
         </button>
+        {/* Language toggle */}
+        <button
+          onClick={toggle}
+          className="text-xs font-bold px-2 py-1 rounded-md transition-colors"
+          style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.25)' }}
+        >
+          {lang === 'en' ? 'FR' : 'EN'}
+        </button>
         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--color-gold)', color: '#000' }}>U</div>
         <Link
           to="/login"
           className="text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors"
           style={{ background: 'var(--color-gold)', color: '#000' }}
         >
-          Connexion
+          {t.landing.login}
         </Link>
       </div>
     </header>
@@ -67,16 +77,21 @@ function NavBar() {
 }
 
 export function Landing() {
+  const { t } = useLanguage()
+
+  const DETAILS = [
+    { label: t.landing.director, value: 'ERWIN VANDANAS' },
+    { label: t.landing.writer, value: 'JAY QUARRIE' },
+    { label: t.landing.music, value: 'THORIN STEEL' },
+    { label: t.landing.rating, value: 'PA-13' },
+  ]
+
   return (
     <div className="min-h-screen" style={{ background: '#0a0a0a', color: 'white' }}>
       <NavBar />
 
       {/* HERO */}
-      <section
-        className="relative w-full pt-14"
-        style={{ minHeight: '85vh' }}
-      >
-        {/* Sci-fi landscape background */}
+      <section className="relative w-full pt-14" style={{ minHeight: '85vh' }}>
         <div
           className="absolute inset-0"
           style={{
@@ -85,7 +100,6 @@ export function Landing() {
             `,
           }}
         />
-        {/* Tower silhouettes */}
         <div className="absolute inset-0 overflow-hidden" style={{ pointerEvents: 'none' }}>
           {[
             { left: '45%', height: '55%', width: '18px', bottom: '30%' },
@@ -103,7 +117,7 @@ export function Landing() {
         {/* Content */}
         <div className="relative z-10 px-10 pt-24 pb-16 max-w-2xl">
           <div className="flex gap-2 mb-3 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            <span style={{ background: 'var(--color-gold)', color: '#000', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '10px' }}>LONG MÉTRAGE</span>
+            <span style={{ background: 'var(--color-gold)', color: '#000', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '10px' }}>{t.landing.featureLabel}</span>
             <span>⭐ 9.1</span><span>·</span><span>2025</span><span>·</span><span>2h44</span>
           </div>
           <h1 className="text-5xl font-black mb-4 leading-none" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -113,21 +127,18 @@ export function Landing() {
             {['Sci-Fi', 'Syfy', 'Action'].map(g => (
               <span key={g} className="text-xs px-3 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.15)' }}>{g}</span>
             ))}
-            <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: 'var(--color-teal)', color: '#000' }}>Regarder Maintenant</span>
+            <span className="text-xs px-3 py-1 rounded-full font-semibold" style={{ background: 'var(--color-teal)', color: '#000' }}>{t.landing.watchNow}</span>
           </div>
           <p className="text-sm leading-relaxed mb-8 max-w-xl" style={{ color: 'rgba(255,255,255,0.75)' }}>
-            Dans un futur où les étoiles sont explorées par tour les rampers, un navigateur
-            direct-shot mener un équipage de pris aux confins de la galaxie pour
-            empêcher l'effondrement du temps lui-même. Voici l'événement
-            cinématographique définitif de la décennie.
+            {t.landing.heroDesc}
           </p>
           <div className="flex gap-3">
             <button className="flex items-center gap-2 font-bold px-6 py-3 rounded-lg text-sm transition-colors" style={{ background: 'var(--color-gold)', color: '#000' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-              REGARDER MAINTENANT
+              {t.landing.watchNowBtn}
             </button>
             <button className="flex items-center gap-2 font-semibold px-6 py-3 rounded-lg text-sm transition-colors" style={{ background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}>
-              + MA LISTE
+              {t.landing.myListBtn}
             </button>
             <button className="flex items-center justify-center w-11 h-11 rounded-lg transition-colors" style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
@@ -136,11 +147,11 @@ export function Landing() {
         </div>
       </section>
 
-      {/* DISTRIBUTION + 4K */}
+      {/* CAST + DETAILS + 4K */}
       <section className="px-10 py-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <h2 className="text-base font-bold mb-6" style={{ color: 'var(--color-gold)' }}>
-            | Distribution
+            {t.landing.castTitle}
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
             {CAST.map((c) => (
@@ -156,16 +167,11 @@ export function Landing() {
             ))}
           </div>
 
-          {/* Détails */}
+          {/* Details */}
           <div className="mt-10">
-            <h2 className="text-base font-bold mb-5" style={{ color: 'var(--color-gold)' }}>| Détails</h2>
+            <h2 className="text-base font-bold mb-5" style={{ color: 'var(--color-gold)' }}>{t.landing.detailsTitle}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { label: 'RÉALISATION', value: 'ERWIN VANDANAS' },
-                { label: 'SCÉNARISTE', value: 'JAY QUARRIE' },
-                { label: 'MUSIQUE', value: 'THORIN STEEL' },
-                { label: 'NOTE', value: 'PA-13' },
-              ].map((d) => (
+              {DETAILS.map((d) => (
                 <div key={d.label}>
                   <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: '#555' }}>{d.label}</p>
                   <p className="text-sm font-semibold text-white">{d.value}</p>
@@ -177,22 +183,22 @@ export function Landing() {
 
         {/* 4K Card */}
         <div className="rounded-xl p-5 flex flex-col gap-3" style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <p className="text-sm font-bold text-white">Disponible en 4K</p>
+          <p className="text-sm font-bold text-white">{t.landing.available4k}</p>
           <p className="text-xs leading-relaxed" style={{ color: '#888' }}>
-            Regardez Aeon: Ascension en Ultra Haute Définition avec Dolby Vision et bénéficiez d'une expérience cinéma ultime à la maison.
+            {t.landing.watch4kDesc}
           </p>
           <button className="w-full font-bold py-2.5 rounded-lg text-sm mt-2 transition-colors" style={{ background: 'var(--color-teal)', color: '#000' }}>
-            S'ABONNER 4K UHD
+            {t.landing.subscribe4k}
           </button>
 
           <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <p className="text-xs font-bold text-white mb-2">Critiques récentes</p>
+            <p className="text-xs font-bold text-white mb-2">{t.landing.recentReviews}</p>
             <div className="flex gap-0.5 mb-2">
               {[1,2,3,4].map(i => <span key={i} style={{ color: 'var(--color-gold)' }}>★</span>)}
               <span style={{ color: '#444' }}>★</span>
             </div>
             <p className="text-xs leading-relaxed" style={{ color: '#777' }}>
-              "Un chef-d'œuvre cinématographique absolu qui redéfinit la science-fiction moderne."
+              {t.landing.reviewQuote}
             </p>
           </div>
         </div>
@@ -201,8 +207,8 @@ export function Landing() {
       {/* SIMILAR CONTENT */}
       <section className="px-10 py-8">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-bold text-white">Contenus similaires</h2>
-          <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>VOIR PLUS →</button>
+          <h2 className="text-base font-bold text-white">{t.landing.similarContent}</h2>
+          <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.landing.seeMore}</button>
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
           {SIMILAR.map((m) => (
@@ -225,30 +231,30 @@ export function Landing() {
           <div>
             <img src="/logo.png" alt="EmergingStream" className="mb-3" style={{ height: '30px', width: 'auto' }} />
             <p className="text-xs leading-relaxed" style={{ color: '#555' }}>
-              La destination ultime pour des expériences cinématographiques premium. Diffusez les dernières blockbusters et les séries originales exclusives en 4K UHD.
+              {t.landing.footerDesc}
             </p>
           </div>
           <div>
-            <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#888' }}>Explorer</p>
-            {['Films', 'Séries TV', 'Direct TV'].map(l => (
+            <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#888' }}>{t.landing.footerExplore}</p>
+            {t.landing.footerExploreItems.map(l => (
               <a key={l} href="#" className="block text-xs mb-2 transition-colors hover:text-white" style={{ color: '#555' }}>{l}</a>
             ))}
           </div>
           <div>
-            <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#888' }}>Support</p>
-            {["Centre d'aide", 'Nous contacter', 'Appareils'].map(l => (
+            <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#888' }}>{t.landing.footerSupport}</p>
+            {t.landing.footerSupportItems.map(l => (
               <a key={l} href="#" className="block text-xs mb-2 transition-colors hover:text-white" style={{ color: '#555' }}>{l}</a>
             ))}
           </div>
           <div>
-            <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#888' }}>Légal</p>
-            {["Conditions d'utilisation", 'Politique de confidentialité', 'Cookies'].map(l => (
+            <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#888' }}>{t.landing.footerLegal}</p>
+            {t.landing.footerLegalItems.map(l => (
               <a key={l} href="#" className="block text-xs mb-2 transition-colors hover:text-white" style={{ color: '#555' }}>{l}</a>
             ))}
           </div>
         </div>
         <div className="flex items-center justify-between" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1.5rem' }}>
-          <p className="text-[10px]" style={{ color: '#444' }}>© 2025 EmergingStream Global Entertainment. Tous droits réservés.</p>
+          <p className="text-[10px]" style={{ color: '#444' }}>{t.landing.copyright}</p>
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold tracking-widest" style={{ color: '#333' }}>※ ≋ ψ PIRAGRAM</span>
           </div>

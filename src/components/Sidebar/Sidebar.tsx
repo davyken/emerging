@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 function Icon({ d, size = 15 }: { d: string; size?: number }) {
   return (
@@ -8,44 +9,24 @@ function Icon({ d, size = 15 }: { d: string; size?: number }) {
   )
 }
 
-const NAV_ITEMS = [
-  {
-    to: '/accueil',
-    label: 'Browse',
-    icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10',
-    matchPaths: ['/accueil', '/films', '/series', '/ma-liste'],
-  },
-  {
-    to: '/direct',
-    label: 'Live Guide',
-    icon: 'M21 3H3v14h18V3zM8 21h8M12 17v4',
-  },
-  {
-    to: '/library',
-    label: 'Library',
-    icon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
-  },
-  {
-    to: '/downloads',
-    label: 'Downloads',
-    icon: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3',
-  },
-  {
-    to: '/history',
-    label: 'History',
-    icon: 'M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z M12 6v6l4 2',
-  },
+const NAV_ICONS = [
+  { to: '/accueil', key: 'browse' as const, icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10', matchPaths: ['/accueil', '/films', '/series', '/ma-liste'] },
+  { to: '/direct',   key: 'liveGuide' as const,  icon: 'M21 3H3v14h18V3zM8 21h8M12 17v4' },
+  { to: '/library',  key: 'library' as const,    icon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' },
+  { to: '/downloads',key: 'downloads' as const,  icon: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3' },
+  { to: '/history',  key: 'history' as const,    icon: 'M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z M12 6v6l4 2' },
 ]
 
 export function Sidebar() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const currentPath = window.location.pathname
 
   function handleLogout() {
     navigate('/login')
   }
 
-  function isActive(item: typeof NAV_ITEMS[0]) {
+  function isActive(item: typeof NAV_ICONS[0]) {
     if (item.matchPaths) return item.matchPaths.some(p => currentPath.startsWith(p))
     return currentPath === item.to || currentPath.startsWith(item.to)
   }
@@ -62,8 +43,9 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex flex-col px-2 gap-0.5 flex-1 pt-1">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ICONS.map((item) => {
           const active = isActive(item)
+          const label = t.sidebar[item.key]
           return (
             <NavLink
               key={item.to}
@@ -78,7 +60,7 @@ export function Sidebar() {
               <span style={{ color: active ? 'var(--color-gold)' : undefined }}>
                 <Icon d={item.icon} />
               </span>
-              {item.label}
+              {label}
             </NavLink>
           )
         })}
@@ -86,13 +68,13 @@ export function Sidebar() {
 
       {/* 4K Upgrade */}
       <div className="mx-3 mb-3 p-3 rounded-xl" style={{ background: '#161616', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <p className="text-[9px] tracking-widest uppercase mb-1" style={{ color: '#444' }}>Level One</p>
-        <p className="text-[11px] text-white leading-snug mb-2.5">Upgrade to 4K Cinema Quality</p>
+        <p className="text-[9px] tracking-widest uppercase mb-1" style={{ color: '#444' }}>{t.sidebar.levelOne}</p>
+        <p className="text-[11px] text-white leading-snug mb-2.5">{t.sidebar.upgradeDesc}</p>
         <button
           className="w-full text-xs font-bold py-2 rounded-lg transition-colors"
           style={{ background: 'var(--color-gold)', color: '#000' }}
         >
-          Upgrade to 4K
+          {t.sidebar.upgrade4k}
         </button>
       </div>
 
@@ -104,7 +86,7 @@ export function Sidebar() {
           style={{ color: '#555', borderLeft: '2px solid transparent' }}
         >
           <Icon d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          Support
+          {t.sidebar.support}
         </NavLink>
         <button
           onClick={handleLogout}
@@ -112,7 +94,7 @@ export function Sidebar() {
           style={{ color: '#555', borderLeft: '2px solid transparent' }}
         >
           <Icon d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9" />
-          Logout
+          {t.sidebar.logout}
         </button>
       </div>
     </aside>

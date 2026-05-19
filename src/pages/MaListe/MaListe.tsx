@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMealImages } from '../../hooks/useMealImages'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 const MOCK_SAVED = [
   { id: 'f1', title: 'Stellar Void', year: 2025, type: 'Film', g: 'linear-gradient(160deg,#0a1628,#1a4a8c,#0d2040)' },
@@ -13,6 +14,7 @@ type ViewMode = 'grid' | 'list'
 
 export function MaListe() {
   const { img } = useMealImages()
+  const { t } = useLanguage()
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [saved, setSaved] = useState(MOCK_SAVED)
 
@@ -20,13 +22,17 @@ export function MaListe() {
     setSaved((prev) => prev.filter((i) => i.id !== id))
   }
 
+  const savedCount = saved.length === 1
+    ? `1 ${t.maListe.savedSingular}`
+    : `${saved.length} ${t.maListe.savedPlural}`
+
   return (
     <div className="min-h-full p-6" style={{ background: '#0a0a0a' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-black text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>Ma Liste</h1>
-          <p className="text-xs mt-1" style={{ color: '#555' }}>{saved.length} titre{saved.length !== 1 ? 's' : ''} sauvegardé{saved.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-xl font-black text-white" style={{ fontFamily: "'DM Sans', sans-serif" }}>{t.maListe.title}</h1>
+          <p className="text-xs mt-1" style={{ color: '#555' }}>{savedCount}</p>
         </div>
         <div className="flex gap-1">
           <button
@@ -52,21 +58,20 @@ export function MaListe() {
       </div>
 
       {saved.length === 0 ? (
-        /* Empty state */
         <div className="flex flex-col items-center justify-center py-32 text-center">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
             </svg>
           </div>
-          <h2 className="text-base font-semibold text-white mb-2">Votre liste est vide</h2>
-          <p className="text-sm max-w-xs mb-6" style={{ color: '#555' }}>Parcourez le catalogue et ajoutez vos films et séries préférés ici.</p>
+          <h2 className="text-base font-semibold text-white mb-2">{t.maListe.emptyTitle}</h2>
+          <p className="text-sm max-w-xs mb-6" style={{ color: '#555' }}>{t.maListe.emptyDesc}</p>
           <Link
             to="/accueil"
             className="font-bold px-6 py-2.5 rounded-lg text-sm"
             style={{ background: 'var(--color-gold)', color: '#000' }}
           >
-            Parcourir le catalogue
+            {t.maListe.browseCatalog}
           </Link>
         </div>
       ) : viewMode === 'grid' ? (
@@ -110,7 +115,7 @@ export function MaListe() {
               </Link>
               <Link to={`/watch/${item.id}`} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors flex-shrink-0" style={{ background: 'var(--color-gold)', color: '#000' }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-                Lire
+                {t.maListe.play}
               </Link>
               <button onClick={() => remove(item.id)} className="p-1.5 rounded-lg transition-colors flex-shrink-0" style={{ color: '#555' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>

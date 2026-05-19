@@ -11,7 +11,10 @@
       "Bash(curl -sv http://localhost:5173)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(pkill -f \"vite\")",
-      "Bash(node_modules/.bin/vite --port 5173)"
+      "Bash(node_modules/.bin/vite --port 5173)",
+      "Bash(npm run *)",
+      "Skill(agent-browser)",
+      "Bash(curl -s http://localhost:5174/)"
     ]
   }
 }

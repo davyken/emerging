@@ -4,8 +4,7 @@ import { getLibraries, getLibraryItems, getThumbUrl } from '../../services/plexA
 import { useAuthStore } from '../../store/authStore'
 import type { PlexMedia } from '../../types/plex'
 import { useMealImages } from '../../hooks/useMealImages'
-
-const CATEGORIES = ['All Films', 'Action', 'Sci-Fi', 'Drama', 'Thriller', 'Comedy', 'Horror', 'Documentary']
+import { useLanguage } from '../../i18n/LanguageContext'
 
 const MOCK_FILMS = [
   { id: 'f1', title: 'Stellar Void', year: 2025, rating: 8.2, genre: 'Sci-Fi', g: 'linear-gradient(160deg,#0a1628,#1a4a8c,#0d2040)' },
@@ -29,7 +28,8 @@ const MOCK_FILMS = [
 export function Films() {
   const token = useAuthStore((s) => s.token) ?? ''
   const { img } = useMealImages()
-  const [category, setCategory] = useState('All Films')
+  const { t } = useLanguage()
+  const [categoryIndex, setCategoryIndex] = useState(0)
   const [items, setItems] = useState<PlexMedia[]>([])
   const [loaded, setLoaded] = useState(false)
 
@@ -54,17 +54,17 @@ export function Films() {
     <div className="min-h-full p-6" style={{ background: '#0a0a0a' }}>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-xl font-black text-white mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>Films</h1>
+        <h1 className="text-xl font-black text-white mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>{t.films.title}</h1>
         <div className="flex gap-2 flex-wrap">
-          {CATEGORIES.map((cat) => (
+          {t.films.categories.map((cat, idx) => (
             <button
-              key={cat}
-              onClick={() => setCategory(cat)}
+              key={idx}
+              onClick={() => setCategoryIndex(idx)}
               className="text-xs font-medium px-4 py-1.5 rounded-full transition-all"
               style={{
-                background: category === cat ? 'var(--color-gold)' : 'rgba(255,255,255,0.07)',
-                color: category === cat ? '#000' : '#888',
-                border: category === cat ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                background: categoryIndex === idx ? 'var(--color-gold)' : 'rgba(255,255,255,0.07)',
+                color: categoryIndex === idx ? '#000' : '#888',
+                border: categoryIndex === idx ? 'none' : '1px solid rgba(255,255,255,0.08)',
               }}
             >
               {cat}
@@ -78,16 +78,16 @@ export function Films() {
         {img(30) && <img src={img(30)} alt="Featured" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)' }} />
         <div className="relative z-10 h-full flex flex-col justify-end p-6">
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded mb-2 self-start" style={{ background: 'var(--color-gold)', color: '#000' }}>FEATURED</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded mb-2 self-start" style={{ background: 'var(--color-gold)', color: '#000' }}>{t.films.featured}</span>
           <h2 className="text-2xl font-black text-white mb-1">Stellar Void</h2>
-          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>2025 • Sci-Fi • ⭐ 8.2 • 2h 14m</p>
+          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>2025 · Sci-Fi · ⭐ 8.2 · 2h 14m</p>
           <div className="flex gap-3">
             <Link to="/watch/f1" className="flex items-center gap-2 font-bold px-4 py-2 rounded-lg text-sm" style={{ background: 'var(--color-gold)', color: '#000' }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-              Play Now
+              {t.films.playNow}
             </Link>
             <Link to="/media/f1" className="font-semibold px-4 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.12)', color: 'white' }}>
-              More Info
+              {t.films.moreInfo}
             </Link>
           </div>
         </div>
