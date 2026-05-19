@@ -272,31 +272,14 @@ export function Watch() {
             </div>
 
             <div className="flex-1" />
-          </div>
-        </div>
 
-        {/* Bottom bar */}
-        <div
-          className="absolute bottom-0 left-0 right-0 flex items-end justify-between px-3 sm:px-6 pb-3 sm:pb-4 z-20 transition-opacity duration-500 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6), transparent)', opacity: showControls ? 1 : 0 }}
-        >
-          <div className="pointer-events-auto">
             <button
               onClick={() => setHlsQualityDemo(true)}
-              className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-              style={{ background: 'rgba(255,255,255,0.1)', color: '#ccc', border: '1px solid rgba(255,255,255,0.15)' }}
+              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors hover:bg-white/10"
+              style={{ color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.3)', background: 'rgba(201,168,76,0.1)' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
-              Test Quality Switching
-            </button>
-          </div>
-          <div className="pointer-events-auto">
-            <button
-              onClick={() => containerRef.current?.requestFullscreen?.()}
-              className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 transition-colors"
-              style={{ color: 'rgba(255,255,255,0.7)' }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>
+              <span>HLS Demo</span>
             </button>
           </div>
         </div>
@@ -450,14 +433,14 @@ export function Watch() {
           </div>
         </div>
         <div className="flex items-center px-3 sm:px-6 gap-2 sm:gap-4">
-          <button onClick={togglePlay} className="text-white hover:text-gray-300 transition-colors flex-shrink-0">
+          <button onClick={togglePlay} className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-white hover:bg-white/10 transition-colors flex-shrink-0">
             {playing
               ? <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
               : <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
             }
           </button>
           <div className="flex items-center gap-1 sm:gap-2">
-            <button onClick={() => { const v = videoRef.current; if (v) { v.muted = !v.muted; setMuted(v.muted) }}} className="text-gray-400 hover:text-white transition-colors flex-shrink-0">
+            <button onClick={() => { const v = videoRef.current; if (v) { v.muted = !v.muted; setMuted(v.muted) }}} className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
               {muted || volume === 0
                 ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" /></svg>
                 : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" /></svg>
@@ -473,7 +456,7 @@ export function Watch() {
           </span>
           <div className="flex-1" />
           {qualities.length > 0 && (
-            <span className="hidden sm:block text-[10px] font-semibold px-2 py-0.5 rounded cursor-pointer flex-shrink-0"
+            <span className="hidden sm:block text-[10px] font-semibold px-2 py-1 rounded cursor-pointer flex-shrink-0 hover:bg-white/10 transition-colors"
               style={{ background: 'rgba(255,255,255,0.08)', color: '#aaa', border: '1px solid rgba(255,255,255,0.1)' }}
               onClick={(e) => { e.stopPropagation(); setSettingsView('quality'); setShowSettings(true) }}
             >
@@ -481,13 +464,14 @@ export function Watch() {
             </span>
           )}
           <button onClick={(e) => { e.stopPropagation(); setSettingsView('root'); setShowSettings(v => !v) }}
-            className="flex-shrink-0 transition-colors" style={{ color: showSettings ? 'var(--color-gold)' : 'rgba(255,255,255,0.65)' }}
+            className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex-shrink-0 hover:bg-white/10 transition-colors"
+            style={{ color: showSettings ? 'var(--color-gold)' : 'rgba(255,255,255,0.65)', background: showSettings ? 'rgba(255,255,255,0.05)' : undefined }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
             </svg>
           </button>
-          <button onClick={() => containerRef.current?.requestFullscreen?.()} className="text-gray-400 hover:text-white transition-colors flex-shrink-0">
+          <button onClick={() => containerRef.current?.requestFullscreen?.()} className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>
           </button>
         </div>
