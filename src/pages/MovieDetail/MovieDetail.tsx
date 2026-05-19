@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore'
 import type { PlexMedia } from '../../types/plex'
 import { useMealImages } from '../../hooks/useMealImages'
 import { useLanguage } from '../../i18n/LanguageContext'
+import { getTrailerYouTubeId, buildYouTubeEmbedUrl } from '../../services/trailerService'
 
 type Tab = 'episodes' | 'related' | 'trailers'
 
@@ -209,6 +210,10 @@ export function MovieDetail() {
           )}
         </div>
 
+        {tab === 'trailers' && (
+          <TrailersTab ratingKey={ratingKey ?? 'demo'} title={media.title} />
+        )}
+
         {tab === 'episodes' && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {MOCK_EPISODES.map((ep, i) => (
@@ -285,6 +290,73 @@ export function MovieDetail() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Trailers tab ──────────────────────────────────────────────────────────────
+
+const MOCK_TRAILERS = [
+  { label: 'Official Trailer', offset: 0 },
+  { label: 'Teaser Trailer', offset: 3 },
+  { label: 'Behind the Scenes', offset: 7 },
+]
+
+function TrailersTab({ ratingKey, title }: { ratingKey: string; title: string }) {
+  const [selected, setSelected] = useState(0)
+
+  const videoIds = MOCK_TRAILERS.map((_, i) => {
+    const key = i === 0 ? ratingKey : `${ratingKey}_t${i}`
+    return getTrailerYouTubeId(key)
+  })
+
+  const embedUrl = buildYouTubeEmbedUrl(videoIds[selected], true)
+
+  return (
+    <div className="mb-10">
+      {/* Trailer selector pills */}
+      <div className="flex gap-2 flex-wrap mb-5">
+        {MOCK_TRAILERS.map((tr, i) => (
+          <button
+            key={i}
+            onClick={() => setSelected(i)}
+            className="text-xs font-semibold px-4 py-1.5 rounded-full transition-all"
+            style={{
+              background: selected === i ? 'var(--color-gold)' : 'rgba(255,255,255,0.07)',
+              color: selected === i ? '#000' : '#888',
+              border: selected === i ? 'none' : '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            {tr.label}
+          </button>
+        ))}
+      </div>
+
+      {/* YouTube embed */}
+      <div className="rounded-2xl overflow-hidden relative" style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ aspectRatio: '16/9', maxHeight: '480px' }}>
+          <iframe
+            key={`${ratingKey}-${selected}`}
+            src={embedUrl}
+            title={`${title} — ${MOCK_TRAILERS[selected].label}`}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{ border: 'none', display: 'block' }}
+          />
+        </div>
+      </div>
+
+      {/* Caption */}
+      <div className="flex items-center gap-3 mt-4 px-1">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,0,0,0.15)', border: '1px solid rgba(255,0,0,0.2)' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#ff4444"><polygon points="5,3 19,12 5,21" /></svg>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-white">{title} — {MOCK_TRAILERS[selected].label}</p>
+          <p className="text-xs mt-0.5" style={{ color: '#666' }}>Via YouTube · Official Channel</p>
+        </div>
+      </div>
     </div>
   )
 }

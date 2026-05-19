@@ -4,6 +4,17 @@ import Hls from 'hls.js'
 import { getChannels, getEPG, getChannelStreamUrl } from '../../services/xg2gApi'
 import type { Channel, EPGProgram } from '../../types/xg2g'
 
+const RANDOM_MOVIES = [
+  { id: 'f1',  title: 'Stellar Void',      year: 2025, genre: 'Sci-Fi',   g: 'linear-gradient(160deg,#0a1628,#1a4a8c,#0d2040)' },
+  { id: 'f3',  title: 'Velocity Prime',    year: 2025, genre: 'Action',   g: 'linear-gradient(160deg,#1a0000,#5a0000,#2a0000)' },
+  { id: 'f5',  title: 'The Algorithm',     year: 2025, genre: 'Sci-Fi',   g: 'linear-gradient(160deg,#0a0a1a,#2a2a6a,#0a0a3a)' },
+  { id: 'f6',  title: 'Red Horizon',       year: 2025, genre: 'Action',   g: 'linear-gradient(160deg,#1a0800,#5a1a00,#2a0e00)' },
+  { id: 'f8',  title: 'Dusk Drifter',      year: 2025, genre: 'Drama',    g: 'linear-gradient(160deg,#1a1000,#4a2d00,#2a1800)' },
+  { id: 'f15', title: 'Last Signal',       year: 2025, genre: 'Thriller', g: 'linear-gradient(160deg,#0a0800,#302000,#1a1000)' },
+  { id: 's1',  title: 'Kairo Chronicles',  year: 2024, genre: 'Sci-Fi',   g: 'linear-gradient(160deg,#0a1628,#1a4a8c,#0d2040)' },
+  { id: 's5',  title: 'Red Lagos',         year: 2025, genre: 'Drama',    g: 'linear-gradient(160deg,#180800,#500000,#280000)' },
+]
+
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
@@ -47,6 +58,7 @@ export function WatchIPTV() {
   const [quality, setQuality] = useState('1080p')
   const [showControls, setShowControls] = useState(true)
   const [showSchedule, setShowSchedule] = useState(window.innerWidth >= 640)
+  const [showMovies, setShowMovies] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -246,6 +258,59 @@ export function WatchIPTV() {
         </div>
       </div>
 
+      {/* Movies panel */}
+      {showMovies && (
+        <div
+          className="absolute left-0 right-0 z-20 transition-opacity duration-300"
+          style={{ bottom: '4.5rem', opacity: showControls ? 1 : 0 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="mx-3 sm:mx-6 rounded-xl overflow-hidden"
+            style={{ background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2"><path d="M15 10l4.553-2.169A1 1 0 0 1 21 8.723v6.554a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" /></svg>
+                <p className="text-xs font-semibold text-white">Films recommandés</p>
+              </div>
+              <button
+                onClick={() => setShowMovies(false)}
+                className="w-5 h-5 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.1)' }}
+              >
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+            <div className="flex gap-3 px-4 py-3 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+              {RANDOM_MOVIES.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => navigate(`/watch/${m.id}`)}
+                  className="flex-shrink-0 text-left group"
+                >
+                  <div
+                    className="rounded-lg overflow-hidden relative mb-1.5 transition-all group-hover:scale-105"
+                    style={{ width: 90, aspectRatio: '2/3', background: m.g }}
+                  >
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.9)' }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21" /></svg>
+                      </div>
+                    </div>
+                    <div className="absolute top-1.5 left-1.5">
+                      <span className="text-[8px] font-bold px-1 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.75)', color: '#aaa' }}>{m.genre}</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-semibold text-white truncate" style={{ maxWidth: 90 }}>{m.title}</p>
+                  <p className="text-[9px] mt-0.5" style={{ color: '#555' }}>{m.year}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bottom controls */}
       <div
         className="absolute bottom-0 left-0 right-0 z-20 pb-3 sm:pb-4 transition-opacity duration-300"
@@ -305,9 +370,23 @@ export function WatchIPTV() {
             {QUALITY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
           </select>
 
+          {/* Movies toggle */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowMovies(v => !v); setShowSchedule(false) }}
+            className="flex items-center gap-1.5 text-xs font-medium px-2 sm:px-3 py-1 rounded transition-colors flex-shrink-0"
+            style={{
+              background: showMovies ? 'rgba(201,168,76,0.2)' : 'rgba(255,255,255,0.1)',
+              color: showMovies ? 'var(--color-gold)' : 'white',
+              border: showMovies ? '1px solid rgba(201,168,76,0.4)' : '1px solid rgba(255,255,255,0.15)',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="2" /><path d="M7 2v20M17 2v20M2 12h20M2 7h5M17 7h5M2 17h5M17 17h5" /></svg>
+            <span className="hidden sm:inline">Films</span>
+          </button>
+
           {/* Schedule toggle */}
           <button
-            onClick={(e) => { e.stopPropagation(); setShowSchedule(v => !v) }}
+            onClick={(e) => { e.stopPropagation(); setShowSchedule(v => !v); setShowMovies(false) }}
             className="flex items-center gap-1.5 text-xs font-medium px-2 sm:px-3 py-1 rounded transition-colors flex-shrink-0"
             style={{
               background: showSchedule ? 'rgba(201,168,76,0.2)' : 'rgba(255,255,255,0.1)',
