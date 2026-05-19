@@ -1,60 +1,49 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getRecentlyAdded, getLibraries, getLibraryItems, getThumbUrl } from '../../services/plexApi'
-import { useAuthStore } from '../../store/authStore'
-import type { PlexMedia } from '../../types/plex'
-import { useMealImages } from '../../hooks/useMealImages'
-import { getMealImagePool, getRandomFeaturedShow, type FeaturedShow } from '../../services/mealDbApi'
 import { useLanguage } from '../../i18n/LanguageContext'
+import {
+  getTrending, getPopularMovies, getPopularShows, getTopRatedMovies, tmdbImg,
+} from '../../services/tmdbApi'
+import type { TmdbMovie, TmdbShow, TmdbTrendingItem } from '../../types/tmdb'
 
-const GRADIENTS = [
-  'linear-gradient(160deg,#0a1a2a,#1a4a6a,#0a2030)',
-  'linear-gradient(160deg,#1a0f00,#5a2800,#2a1200)',
-  'linear-gradient(160deg,#050a14,#0f2040,#050a1c)',
-  'linear-gradient(160deg,#0a1408,#1a3a10,#081008)',
-  'linear-gradient(160deg,#1a0a1a,#4a1060,#1a0830)',
-  'linear-gradient(160deg,#140800,#4a2000,#200e00)',
-  'linear-gradient(160deg,#001414,#003030,#001010)',
-  'linear-gradient(160deg,#0a0a14,#20204a,#080818)',
-]
+function mediaType(item: TmdbTrendingItem): 'movie' | 'tv' {
+  return item.media_type
+}
+function mediaTitle(item: TmdbTrendingItem): string {
+  return item.media_type === 'movie' ? (item as TmdbMovie).title : (item as TmdbShow).name
+}
+function mediaDate(item: TmdbTrendingItem): string {
+  return item.media_type === 'movie'
+    ? (item as TmdbMovie).release_date
+    : (item as TmdbShow).first_air_date
+}
 
-const MOCK_TRENDING = [
-  { id: 'm1', title: 'Shadow of the Void', gradient: GRADIENTS[0] },
-  { id: 'm2', title: 'Midnight Echoes', gradient: GRADIENTS[1] },
-  { id: 'm3', title: 'Velocity Prime', gradient: GRADIENTS[2] },
-  { id: 'm4', title: 'Ancient Relics', gradient: GRADIENTS[3] },
-  { id: 'm5', title: 'The Algorithm', gradient: GRADIENTS[4] },
-]
-
-const MOCK_AFRICAN = [
-  { id: 'a1', title: 'Fils du Soleil', gradient: 'linear-gradient(180deg,#1a1000,#3a2200,#8b4500)', featured: true },
-  { id: 'a2', title: 'Kemet Rising', gradient: 'linear-gradient(160deg,#200000,#600010,#300008)' },
-  { id: 'a3', title: 'Ubuntu Protocol', gradient: 'linear-gradient(160deg,#001020,#003060,#001030)' },
-  { id: 'a4', title: 'Nile Chronicles', gradient: 'linear-gradient(160deg,#080808,#1a1a1a,#0f0f0f)' },
-  { id: 'a5', title: 'Lagos 2099', gradient: 'linear-gradient(160deg,#0a1408,#204010,#102008)' },
-  { id: 'a6', title: 'Okoye', gradient: 'linear-gradient(160deg,#1a0a00,#503000,#2a1800)' },
-]
-
-const MOCK_RECENT = [
-  { id: 'r1', title: 'Abyssal Pulse', year: '4h 23m', rating: 'Thriller', gradient: GRADIENTS[5] },
-  { id: 'r2', title: 'Nite Mast', year: '2h', rating: 'Action', gradient: GRADIENTS[6] },
-  { id: 'r3', title: 'Temporal Shift', year: '2h 10m', rating: 'Mystery', gradient: GRADIENTS[7] },
-]
-
-interface CardProps { id: string; title: string; gradient: string; token?: string; media?: PlexMedia; size?: 'sm' | 'md'; imgSrc?: string }
-
-function PosterCard({ id, title, gradient, token, media, size = 'md', imgSrc }: CardProps) {
-  const width = size === 'sm' ? 100 : 120
-  const thumbSrc = media?.thumb && token ? getThumbUrl(token, media.thumb) : (imgSrc ?? null)
+function PosterCard({ item, width = 120 }: { item: TmdbMovie | TmdbShow; width?: number }) {
+  const isMovie = 'title' in item
+  const title = isMovie ? (item as TmdbMovie).title : (item as TmdbShow).name
+  const type = isMovie ? 'movie' : 'tv'
+  const poster = tmdbImg(item.poster_path, 'w342')
   return (
-    <Link to={media ? `/media/${media.ratingKey}` : `/media/${id}`} className="flex-shrink-0 group cursor-pointer block">
-      <div className="rounded-xl overflow-hidden relative" style={{ width, aspectRatio: '2/3', background: gradient }}>
-        {thumbSrc && <img src={thumbSrc} alt={title} className="w-full h-full object-cover" loading="lazy" />}
+    <Link to={`/media/${type}/${item.id}`} className="flex-shrink-0 group block">
+      <div className="rounded-xl overflow-hidden relative" style={{ width, aspectRatio: '2/3', background: '#1a1a1a' }}>
+        {poster
+          ? <img src={poster} alt={title} className="w-full h-full object-cover" loading="lazy" />
+          : <div className="w-full h-full flex items-center justify-center" style={{ color: '#333' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M15 10l4.553-2.277A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14v1a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v2z" /></svg>
+            </div>
+        }
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.9)' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21" /></svg>
           </div>
         </div>
+        {item.vote_average > 0 && (
+          <div className="absolute top-2 right-2">
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.75)', color: 'var(--color-gold)' }}>
+              ★ {item.vote_average.toFixed(1)}
+            </span>
+          </div>
+        )}
       </div>
       <p className="text-xs font-medium text-white mt-1.5 truncate" style={{ maxWidth: width }}>{title}</p>
     </Link>
@@ -62,193 +51,131 @@ function PosterCard({ id, title, gradient, token, media, size = 'md', imgSrc }: 
 }
 
 export function Accueil() {
-  const token = useAuthStore((s) => s.token) ?? ''
   const navigate = useNavigate()
-  const { img } = useMealImages()
   const { t } = useLanguage()
-  const [trending, setTrending] = useState<PlexMedia[]>([])
-  const [recent, setRecent] = useState<PlexMedia[]>([])
-  const [hero, setHero] = useState<PlexMedia | null>(null)
-  const [featuredShow, setFeaturedShow] = useState<FeaturedShow | null>(null)
+
+  const [hero, setHero] = useState<TmdbTrendingItem | null>(null)
+  const [trending, setTrending] = useState<TmdbTrendingItem[]>([])
+  const [popularMovies, setPopularMovies] = useState<TmdbMovie[]>([])
+  const [popularShows, setPopularShows] = useState<TmdbShow[]>([])
+  const [topRated, setTopRated] = useState<TmdbMovie[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [libs, recentItems] = await Promise.all([
-          getLibraries(token).catch(() => []),
-          getRecentlyAdded(token).catch(() => []),
-        ])
-        setRecent(recentItems ?? [])
-        setHero((recentItems ?? [])[0] ?? null)
-        if ((libs ?? []).length > 0) {
-          const items = await getLibraryItems(token, (libs ?? [])[0].key).catch(() => [])
-          setTrending(items.slice(0, 8))
-        }
-      } catch {}
-    }
-    load()
-  }, [token])
-
-  useEffect(() => {
-    getMealImagePool().then(() => setFeaturedShow(getRandomFeaturedShow()))
+    Promise.all([
+      getTrending(),
+      getPopularMovies(),
+      getPopularShows(),
+      getTopRatedMovies(),
+    ]).then(([trendItems, movies, shows, top]) => {
+      setTrending(trendItems)
+      setHero(trendItems[0] ?? null)
+      setPopularMovies(movies.slice(0, 10))
+      setPopularShows(shows.slice(0, 10))
+      setTopRated(top.slice(0, 10))
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  const plexThumb = hero?.thumb ? getThumbUrl(token, hero.thumb) : null
-  const heroImage = plexThumb ?? featuredShow?.backdropUrl ?? null
-  const heroTitle = hero?.title ?? featuredShow?.title ?? 'THE RISE OF KAIRO'
-  const heroSummary = hero?.summary ?? featuredShow?.summary ?? 'In a near-future Lagos, a brilliant architect uncovers a conspiracy that threatens to rewrite the history of the continent. A visual masterpiece of tech and tradition.'
-  const heroGenre = featuredShow?.genres[0] ?? 'Original'
-  const heroRating = hero?.rating ?? featuredShow?.rating
+  const heroBackdrop = hero ? tmdbImg(hero.backdrop_path, 'w1280') : null
+  const heroTitle = hero ? mediaTitle(hero) : ''
+  const heroOverview = hero
+    ? (hero.overview?.slice(0, 180) + (hero.overview?.length > 180 ? '...' : ''))
+    : ''
+  const heroYear = hero ? mediaDate(hero)?.slice(0, 4) : ''
+  const heroMediaType = hero ? mediaType(hero) : 'movie'
 
   return (
     <div className="min-h-full" style={{ background: '#0a0a0a' }}>
 
-      {/* HERO */}
+      {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden" style={{ height: '52vh', minHeight: '340px' }}>
-        {heroImage
-          ? <img src={heroImage} alt={heroTitle} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center top' }} />
+        {heroBackdrop
+          ? <img src={heroBackdrop} alt={heroTitle} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center top' }} />
           : <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 130% 80% at 65% 0%, #2a1500 0%, #8b4500 18%, #c46a00 28%, #6b3500 42%, #1a0800 60%, #0a0a0a 80%)' }} />
         }
-
-        <div className="absolute inset-0" style={{
-          background: 'linear-gradient(to right, rgba(10,10,10,0.93) 30%, rgba(10,10,10,0.55) 65%, rgba(10,10,10,0.15) 100%)'
-        }} />
-        <div className="absolute inset-0" style={{
-          background: 'linear-gradient(to top, rgba(10,10,10,1) 0%, rgba(10,10,10,0.5) 35%, transparent 70%)'
-        }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(10,10,10,0.93) 30%, rgba(10,10,10,0.55) 65%, rgba(10,10,10,0.15) 100%)' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(10,10,10,1) 0%, rgba(10,10,10,0.5) 35%, transparent 70%)' }} />
 
         <div className="relative z-10 h-full flex flex-col justify-end px-4 sm:px-7 pb-6 sm:pb-8">
-          <div className="inline-flex items-center gap-2 mb-3 flex-wrap">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: '#2a9a2a', color: 'white' }}>{t.accueil.trendingBadge}</span>
-            {heroGenre && <span className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>{heroGenre}</span>}
-            {heroRating && <span className="text-[10px] font-bold" style={{ color: 'var(--color-gold)' }}>★ {Number(heroRating).toFixed(1)}</span>}
-          </div>
-          <h1 className="text-4xl font-black mb-2 leading-none" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            {heroTitle.toUpperCase()}
-          </h1>
-          <p className="text-sm leading-relaxed mb-5 max-w-sm" style={{ color: 'rgba(255,255,255,0.65)', lineHeight: '1.6' }}>
-            {heroSummary.slice(0, 160)}{heroSummary.length > 160 ? '...' : ''}
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => navigate(hero ? `/watch/${hero.ratingKey}` : '/watch/demo')}
-              className="flex items-center gap-2 font-bold px-5 py-2.5 rounded-lg text-sm transition-colors"
-              style={{ background: 'var(--color-gold)', color: '#000' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-              {t.accueil.playNow}
-            </button>
-            <button
-              onClick={() => navigate(hero ? `/media/${hero.ratingKey}` : '/media/demo')}
-              className="flex items-center gap-2 font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
-              style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.15)' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-              {t.accueil.moreInfo}
-            </button>
-          </div>
+          {!loading && hero && (
+            <>
+              <div className="inline-flex items-center gap-2 mb-3 flex-wrap">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: '#2a9a2a', color: 'white' }}>{t.accueil.trendingBadge}</span>
+                <span className="text-[10px] font-medium capitalize" style={{ color: 'rgba(255,255,255,0.5)' }}>{heroMediaType === 'tv' ? 'TV Show' : 'Film'}</span>
+                {hero.vote_average > 0 && <span className="text-[10px] font-bold" style={{ color: 'var(--color-gold)' }}>★ {hero.vote_average.toFixed(1)}</span>}
+                {heroYear && <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{heroYear}</span>}
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black mb-2 leading-none" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                {heroTitle.toUpperCase()}
+              </h1>
+              <p className="text-sm leading-relaxed mb-5 max-w-sm sm:max-w-md" style={{ color: 'rgba(255,255,255,0.65)', lineHeight: '1.6' }}>
+                {heroOverview}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => navigate(`/watch/${heroMediaType}/${hero.id}`)}
+                  className="flex items-center gap-2 font-bold px-5 py-2.5 rounded-lg text-sm transition-colors"
+                  style={{ background: 'var(--color-gold)', color: '#000' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
+                  {t.accueil.playNow}
+                </button>
+                <button
+                  onClick={() => navigate(`/media/${heroMediaType}/${hero.id}`)}
+                  className="flex items-center gap-2 font-semibold px-5 py-2.5 rounded-lg text-sm"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.15)' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                  {t.accueil.moreInfo}
+                </button>
+              </div>
+            </>
+          )}
+          {loading && (
+            <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin mb-4" style={{ borderColor: 'var(--color-gold)', borderTopColor: 'transparent' }} />
+          )}
         </div>
       </div>
 
-      {/* TRENDING NOW */}
-      <div className="px-4 sm:px-7 pt-5 sm:pt-7 pb-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-white">{t.accueil.trendingNow}</h2>
-          <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.accueil.viewAll}</Link>
-        </div>
-        <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-          {trending.length > 0
-            ? trending.slice(0, 8).map((m, i) => (
-                <PosterCard key={m.ratingKey} id={m.ratingKey} title={m.title} gradient={GRADIENTS[i % GRADIENTS.length]} token={token} media={m} />
-              ))
-            : MOCK_TRENDING.map((m, i) => <PosterCard key={m.id} id={m.id} title={m.title} gradient={m.gradient} imgSrc={img(i)} />)
-          }
-        </div>
+      {/* ── TRENDING NOW ─────────────────────────────────────────────────── */}
+      <Section title={t.accueil.trendingNow} linkTo="/films" linkLabel={t.accueil.viewAll}>
+        {trending.slice(0, 10).map(item => {
+          const isMovie = item.media_type === 'movie'
+          const m = isMovie ? item as TmdbMovie : item as TmdbShow
+          return <PosterCard key={`${item.media_type}-${item.id}`} item={m} />
+        })}
+      </Section>
+
+      {/* ── POPULAR MOVIES ───────────────────────────────────────────────── */}
+      <Section title="Popular Movies" linkTo="/films" linkLabel={t.accueil.viewAll}>
+        {popularMovies.map(m => <PosterCard key={m.id} item={m} />)}
+      </Section>
+
+      {/* ── POPULAR SERIES ───────────────────────────────────────────────── */}
+      <Section title="Popular TV Shows" linkTo="/series" linkLabel={t.accueil.viewAll}>
+        {popularShows.map(s => <PosterCard key={s.id} item={s} />)}
+      </Section>
+
+      {/* ── TOP RATED ────────────────────────────────────────────────────── */}
+      <Section title="Top Rated Movies" linkTo="/films" linkLabel={t.accueil.viewAll}>
+        {topRated.map(m => <PosterCard key={m.id} item={m} />)}
+      </Section>
+
+    </div>
+  )
+}
+
+function Section({ title, linkTo, linkLabel, children }: {
+  title: string; linkTo: string; linkLabel: string; children: React.ReactNode
+}) {
+  return (
+    <div className="px-4 sm:px-7 pt-5 pb-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-bold text-white">{title}</h2>
+        <Link to={linkTo} className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{linkLabel}</Link>
       </div>
-
-      {/* AFRICAN ORIGINALS */}
-      <div className="px-4 sm:px-7 pb-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-white">{t.accueil.africanOriginals}</h2>
-          <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.accueil.viewAll}</Link>
-        </div>
-
-        {/* Mobile: horizontal scroll */}
-        <div className="flex gap-3 overflow-x-auto pb-2 md:hidden" style={{ scrollbarWidth: 'none' }}>
-          {MOCK_AFRICAN.map((m, i) => (
-            <Link key={m.id} to={`/media/${m.id}`} className="flex-shrink-0 group cursor-pointer">
-              <div className="rounded-xl overflow-hidden relative" style={{ width: 110, aspectRatio: '2/3', background: m.gradient }}>
-                {img(10 + i) && <img src={img(10 + i)} alt={m.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
-              </div>
-              <p className="text-xs text-white mt-1.5 font-medium truncate" style={{ maxWidth: 110 }}>{m.title}</p>
-            </Link>
-          ))}
-        </div>
-
-        {/* Desktop: featured grid */}
-        <div className="hidden md:grid gap-3" style={{ gridTemplateColumns: '200px repeat(2, 1fr)', gridTemplateRows: 'auto auto' }}>
-          <Link to={`/media/${MOCK_AFRICAN[0].id}`} className="group cursor-pointer" style={{ gridRow: '1 / 3' }}>
-            <div className="rounded-xl overflow-hidden relative w-full h-full" style={{ minHeight: '260px', background: MOCK_AFRICAN[0].gradient }}>
-              {img(10) && <img src={img(10)} alt={MOCK_AFRICAN[0].title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)' }} />
-            </div>
-          </Link>
-
-          {MOCK_AFRICAN.slice(1, 3).map((m, i) => (
-            <Link key={m.id} to={`/media/${m.id}`} className="group cursor-pointer">
-              <div className="rounded-xl overflow-hidden relative" style={{ aspectRatio: '16/10', background: m.gradient }}>
-                {img(11 + i) && <img src={img(11 + i)} alt={m.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.9)' }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21" /></svg>
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-white mt-1.5 font-medium truncate">{m.title}</p>
-            </Link>
-          ))}
-
-          {MOCK_AFRICAN.slice(3, 5).map((m, i) => (
-            <Link key={m.id} to={`/media/${m.id}`} className="group cursor-pointer">
-              <div className="rounded-xl overflow-hidden relative" style={{ aspectRatio: '16/10', background: m.gradient }}>
-                {img(13 + i) && <img src={img(13 + i)} alt={m.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.9)' }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21" /></svg>
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-white mt-1.5 font-medium truncate">{m.title}</p>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* RECENTLY ADDED */}
-      <div className="px-4 sm:px-7 pb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-white">{t.accueil.recentlyAdded}</h2>
-          <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.accueil.viewAll}</Link>
-        </div>
-        <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-          {recent.length > 0
-            ? recent.slice(0, 8).map((m, i) => (
-                <PosterCard key={m.ratingKey} id={m.ratingKey} title={m.title} gradient={GRADIENTS[i % GRADIENTS.length]} token={token} media={m} />
-              ))
-            : MOCK_RECENT.map((m, i) => (
-                <div key={m.id} className="flex-shrink-0 cursor-pointer group">
-                  <div className="rounded-xl overflow-hidden relative" style={{ width: 120, aspectRatio: '2/3', background: m.gradient }}>
-                    {img(20 + i) && <img src={img(20 + i)} alt={m.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
-                    <div className="absolute inset-0 p-2 flex flex-col justify-end" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)' }}>
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded self-start" style={{ background: 'var(--color-gold)', color: '#000' }}>{m.rating}</span>
-                    </div>
-                  </div>
-                  <p className="text-xs font-medium text-white mt-1.5 truncate" style={{ maxWidth: 120 }}>{m.title}</p>
-                  <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>{m.year}</p>
-                </div>
-              ))
-          }
-        </div>
+      <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+        {children}
       </div>
     </div>
   )

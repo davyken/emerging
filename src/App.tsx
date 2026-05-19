@@ -32,7 +32,7 @@ export default function App() {
         <Route path="/about" element={<Landing />} />
 
         {/* ── Full-screen players (no sidebar) ── */}
-        <Route path="/watch/:ratingKey" element={<Watch />} />
+        <Route path="/watch/:type/:tmdbId" element={<Watch />} />
         <Route path="/watch-tv/:channelId" element={<WatchIPTV />} />
 
         {/* ── App with sidebar + top nav ── */}
@@ -47,7 +47,7 @@ export default function App() {
           <Route path="/downloads" element={<MaListe />} />
           <Route path="/history" element={<Dashboard />} />
           <Route path="/support" element={<Accueil />} />
-          <Route path="/media/:ratingKey" element={<MovieDetail />} />
+          <Route path="/media/:type/:tmdbId" element={<MovieDetail />} />
         </Route>
 
         {/* Catch-all */}

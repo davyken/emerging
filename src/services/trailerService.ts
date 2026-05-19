@@ -1,41 +1,40 @@
-// YouTube trailer IDs for mock movies (mapped by ratingKey)
-const TRAILER_MAP: Record<string, string> = {
-  'demo': 'Way9lt7lLjE',   // Dune Part Two
-  'f1':   'zSWdZVtXT7E',   // Interstellar  (Stellar Void)
-  'f2':   'gCcx85zbxz4',   // Blade Runner 2049 (Midnight Echoes)
-  'f3':   'TcMBFSGVi1c',   // Avengers Endgame (Velocity Prime)
-  'f4':   'tFMo3UJ4B4g',   // Arrival (Ancient Relics)
-  'f5':   'EoQuVnKhxaM',   // Ex Machina (The Algorithm)
-  'f6':   'mqqft2x_Aa4',   // The Batman (Red Horizon)
-  'f7':   'Way9lt7lLjE',   // Dune Part Two (The Threshold)
-  'f8':   'OiTiKOy59o4',   // Gravity (Dusk Drifter)
-  'f9':   'a8Gx8wiNbs8',   // Avatar The Way of Water (Orbital Ones)
-  'f10':  'hEJnMQG9ev8',   // Mad Max Fury Road (Shadow Protocol)
-  'f11':  'gCcx85zbxz4',   // Blade Runner (Neon Requiem)
-  'f12':  '0Q47bCOHgBA',   // A Quiet Place (Echo Chamber)
-  'f13':  'TcMBFSGVi1c',   // Endgame (Cascade Effect)
-  'f14':  'EoQuVnKhxaM',   // Ex Machina (Fractured Sky)
-  'f15':  'zSWdZVtXT7E',   // Interstellar (Last Signal)
-  'f16':  'Way9lt7lLjE',   // Dune (Void Runner)
-  's1':   'eFDa_Ahb40Y',   // Foundation (Kairo Chronicles)
-  's2':   'gCcx85zbxz4',   // Blade Runner (Midnight Protocol)
-  's3':   'tFMo3UJ4B4g',   // Arrival (Urban Echoes)
-  's4':   'Way9lt7lLjE',   // Dune (Void Station)
-  's5':   'mqqft2x_Aa4',   // Batman (Red Lagos)
-  's6':   'EoQuVnKhxaM',   // Ex Machina (The Network)
+import type { TmdbVideo } from '../types/tmdb'
+import { getMovieDetail, getShowDetail, pickBestTrailer } from './tmdbApi'
+
+export type { TmdbVideo }
+
+// Simple in-memory cache
+const videoCache = new Map<string, TmdbVideo[]>()
+
+// Fetch all YouTube videos by TMDB ID (most reliable — no title search needed)
+export async function getVideosByTmdbId(
+  tmdbId: number,
+  mediaType: 'movie' | 'tv'
+): Promise<TmdbVideo[]> {
+  const cacheKey = `${mediaType}:${tmdbId}`
+  if (videoCache.has(cacheKey)) return videoCache.get(cacheKey)!
+  try {
+    const detail = mediaType === 'movie'
+      ? await getMovieDetail(tmdbId)
+      : await getShowDetail(tmdbId)
+    const videos = (detail.videos?.results ?? []).filter(v => v.site === 'YouTube')
+    videoCache.set(cacheKey, videos)
+    return videos
+  } catch {
+    return []
+  }
 }
 
-const FALLBACK_IDS = Object.values(TRAILER_MAP)
-
-// Get a YouTube trailer ID for any ratingKey.
-// For unknown keys (real Plex content), deterministically picks from the fallback pool.
-export function getTrailerYouTubeId(ratingKey: string): string {
-  if (TRAILER_MAP[ratingKey]) return TRAILER_MAP[ratingKey]
-  const hash = ratingKey.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  return FALLBACK_IDS[hash % FALLBACK_IDS.length]
+// Get best trailer key by TMDB ID
+export async function getTrailerKeyByTmdbId(
+  tmdbId: number,
+  mediaType: 'movie' | 'tv'
+): Promise<string | null> {
+  const videos = await getVideosByTmdbId(tmdbId, mediaType)
+  return pickBestTrailer(videos)?.key ?? null
 }
 
-// Build the embeddable YouTube URL
+// Build an embeddable YouTube URL
 export function buildYouTubeEmbedUrl(videoId: string, autoplay = false): string {
   const params = new URLSearchParams({
     rel: '0',

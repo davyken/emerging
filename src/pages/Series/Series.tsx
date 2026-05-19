@@ -1,54 +1,84 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getLibraries, getLibraryItems, getThumbUrl } from '../../services/plexApi'
-import { useAuthStore } from '../../store/authStore'
-import type { PlexMedia } from '../../types/plex'
-import { useMealImages } from '../../hooks/useMealImages'
 import { useLanguage } from '../../i18n/LanguageContext'
+import {
+  getPopularShows, getTopRatedShows, getShowsByGenre,
+  SERIES_GENRE_IDS, tmdbImg,
+} from '../../services/tmdbApi'
+import type { TmdbShow } from '../../types/tmdb'
 
-const MOCK_SERIES = [
-  { id: 's1', title: 'Kairo Chronicles', seasons: 3, rating: 9.1, genre: 'Sci-Fi', g: 'linear-gradient(160deg,#0a1628,#1a4a8c,#0d2040)', episodes: 24 },
-  { id: 's2', title: 'Midnight Protocol', seasons: 2, rating: 8.7, genre: 'Thriller', g: 'linear-gradient(160deg,#100800,#402000,#200e00)', episodes: 16 },
-  { id: 's3', title: 'Urban Echoes', seasons: 4, rating: 8.4, genre: 'Drama', g: 'linear-gradient(160deg,#081008,#204020,#101808)', episodes: 40 },
-  { id: 's4', title: 'Void Station', seasons: 2, rating: 8.9, genre: 'Sci-Fi', g: 'linear-gradient(160deg,#08080f,#18184a,#08081e)', episodes: 18 },
-  { id: 's5', title: 'Red Lagos', seasons: 1, rating: 9.3, genre: 'Drama', g: 'linear-gradient(160deg,#180800,#500000,#280000)', episodes: 8 },
-  { id: 's6', title: 'The Network', seasons: 3, rating: 8.2, genre: 'Thriller', g: 'linear-gradient(160deg,#0a0a14,#1a1a40,#0a0a20)', episodes: 30 },
-  { id: 's7', title: 'Fracture Lines', seasons: 2, rating: 8.6, genre: 'Drama', g: 'linear-gradient(160deg,#101008,#303018,#181808)', episodes: 20 },
-  { id: 's8', title: 'Drift Code', seasons: 1, rating: 7.9, genre: 'Sci-Fi', g: 'linear-gradient(160deg,#001818,#004a4a,#001a1a)', episodes: 10 },
-  { id: 's9', title: 'Night Signals', seasons: 5, rating: 8.8, genre: 'Thriller', g: 'linear-gradient(160deg,#060606,#1a1010,#0a0808)', episodes: 50 },
-  { id: 's10', title: 'The Inheritance', seasons: 2, rating: 8.3, genre: 'Drama', g: 'linear-gradient(160deg,#0a0800,#302800,#1a1400)', episodes: 16 },
-  { id: 's11', title: 'Neon Requiem', seasons: 3, rating: 8.5, genre: 'Sci-Fi', g: 'linear-gradient(160deg,#0a001a,#2a005a,#0a0030)', episodes: 24 },
-  { id: 's12', title: 'Ancient Bloodlines', seasons: 2, rating: 9.0, genre: 'Drama', g: 'linear-gradient(160deg,#100008,#400020,#200010)', episodes: 16 },
-]
+// Module-level label refs updated from the hook on each render
+let t_season = 'Season'
+let t_seasons = 'Seasons'
+
+function ShowCard({ show }: { show: TmdbShow }) {
+  const poster = tmdbImg(show.poster_path, 'w342')
+  const year = show.first_air_date?.slice(0, 4)
+  return (
+    <Link to={`/media/tv/${show.id}`} className="group block">
+      <div className="rounded-xl overflow-hidden relative" style={{ aspectRatio: '2/3', background: '#1a1a1a' }}>
+        {poster
+          ? <img src={poster} alt={show.name} className="w-full h-full object-cover" loading="lazy" />
+          : <div className="w-full h-full flex items-center justify-center" style={{ color: '#333' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="7" width="20" height="15" rx="2" /><path d="M17 2l-5 5-5-5" /></svg>
+            </div>
+        }
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.95)' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21" /></svg>
+          </div>
+        </div>
+        {show.vote_average > 0 && (
+          <div className="absolute top-2 right-2">
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.75)', color: 'var(--color-gold)' }}>
+              ★ {show.vote_average.toFixed(1)}
+            </span>
+          </div>
+        )}
+        {show.number_of_seasons && (
+          <div className="absolute bottom-2 left-2">
+            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.75)', color: '#aaa' }}>
+              {show.number_of_seasons} {show.number_of_seasons === 1 ? t_season : t_seasons}
+            </span>
+          </div>
+        )}
+      </div>
+      <p className="text-xs font-medium text-white mt-2 truncate">{show.name}</p>
+      {year && <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>{year}</p>}
+    </Link>
+  )
+}
 
 export function Series() {
-  const token = useAuthStore((s) => s.token) ?? ''
-  const { img } = useMealImages()
   const { t } = useLanguage()
   const [categoryIndex, setCategoryIndex] = useState(0)
-  const [items, setItems] = useState<PlexMedia[]>([])
-  const [loaded, setLoaded] = useState(false)
+  const [shows, setShows] = useState<TmdbShow[]>([])
+  const [featured, setFeatured] = useState<TmdbShow | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  t_season = t.series.season
+  t_seasons = t.series.seasons
 
   useEffect(() => {
-    async function load() {
-      try {
-        const libs = await getLibraries(token)
-        const showLib = (libs ?? []).find(l => l.type === 'show') ?? (libs ?? [])[1]
-        if (showLib) {
-          const all = await getLibraryItems(token, showLib.key)
-          setItems(all)
-        }
-      } catch {}
-      setLoaded(true)
-    }
-    load()
-  }, [token])
+    setLoading(true)
+    const genreId = SERIES_GENRE_IDS[categoryIndex]
+    const fetchShows = genreId ? getShowsByGenre(genreId) : getPopularShows()
 
-  const displayItems = items.length > 0 ? items : null
+    Promise.all([fetchShows, categoryIndex === 0 ? getTopRatedShows() : Promise.resolve([])])
+      .then(([results, topRated]) => {
+        setShows(results)
+        if (categoryIndex === 0 && topRated.length > 0) setFeatured(topRated[0])
+        else if (results.length > 0) setFeatured(results[0])
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [categoryIndex])
+
+  const backdrop = featured ? tmdbImg(featured.backdrop_path, 'w1280') : null
+  const year = featured?.first_air_date?.slice(0, 4)
 
   return (
     <div className="min-h-full p-4 sm:p-6" style={{ background: '#0a0a0a' }}>
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl font-black text-white mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>{t.series.title}</h1>
         <div className="flex gap-2 flex-wrap">
@@ -70,65 +100,54 @@ export function Series() {
       </div>
 
       {/* Featured banner */}
-      <div className="relative rounded-2xl overflow-hidden mb-8 cursor-pointer" style={{ height: '180px', background: 'linear-gradient(135deg,#100800,#402000,#c46a00)' }}>
-        {img(50) && <img src={img(50)} alt="Featured" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)' }} />
-        <div className="relative z-10 h-full flex flex-col justify-end p-6">
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded mb-2 self-start" style={{ background: 'var(--color-teal)', color: '#000' }}>{t.series.originalSeries}</span>
-          <h2 className="text-2xl font-black text-white mb-1">Kairo Chronicles</h2>
-          <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>{t.series.seriesInfo}</p>
-          <div className="flex gap-3">
-            <Link to="/watch/s1" className="flex items-center gap-2 font-bold px-4 py-2 rounded-lg text-sm" style={{ background: 'var(--color-gold)', color: '#000' }}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-              {t.series.playS1E1}
-            </Link>
-            <Link to="/media/s1" className="font-semibold px-4 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.12)', color: 'white' }}>
-              {t.series.moreInfo}
-            </Link>
+      {featured && (
+        <div className="relative rounded-2xl overflow-hidden mb-8" style={{ height: '200px' }}>
+          {backdrop
+            ? <img src={backdrop} alt={featured.name} className="absolute inset-0 w-full h-full object-cover" />
+            : <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#0a1628,#1a4a8c,#0d2040)' }} />
+          }
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)' }} />
+          <div className="relative z-10 h-full flex flex-col justify-end p-5 sm:p-6">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded mb-2 self-start" style={{ background: 'var(--color-gold)', color: '#000' }}>{t.series.originalSeries}</span>
+            <h2 className="text-xl sm:text-2xl font-black text-white mb-1 max-w-sm truncate">{featured.name}</h2>
+            <p className="text-xs mb-3 sm:mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              {[
+                featured.number_of_seasons
+                  ? `${featured.number_of_seasons} ${featured.number_of_seasons === 1 ? t.series.season : t.series.seasons}`
+                  : null,
+                year,
+                featured.vote_average > 0 ? `⭐ ${featured.vote_average.toFixed(1)}` : null,
+              ].filter(Boolean).join(' · ')}
+            </p>
+            <div className="flex gap-3">
+              <Link
+                to={`/watch/tv/${featured.id}`}
+                className="flex items-center gap-2 font-bold px-4 py-2 rounded-lg text-sm"
+                style={{ background: 'var(--color-gold)', color: '#000' }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
+                {t.series.playS1E1}
+              </Link>
+              <Link
+                to={`/media/tv/${featured.id}`}
+                className="font-semibold px-4 py-2 rounded-lg text-sm"
+                style={{ background: 'rgba(255,255,255,0.12)', color: 'white' }}
+              >
+                {t.series.moreInfo}
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Grid */}
-      {!loaded ? (
+      {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-gold)', borderTopColor: 'transparent' }} />
         </div>
       ) : (
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
-          {(displayItems ? displayItems.slice(0, 20) : MOCK_SERIES).map((item, i) => {
-            const isReal = 'ratingKey' in item
-            const id = isReal ? (item as PlexMedia).ratingKey : (item as typeof MOCK_SERIES[0]).id
-            const title = isReal ? (item as PlexMedia).title : (item as typeof MOCK_SERIES[0]).title
-            const seasons = isReal ? undefined : (item as typeof MOCK_SERIES[0]).seasons
-            const gradient = MOCK_SERIES[i % MOCK_SERIES.length].g
-            const thumbSrc = isReal && (item as PlexMedia).thumb ? getThumbUrl(token, (item as PlexMedia).thumb!) : img(51 + i)
-            return (
-              <Link key={id} to={`/media/${id}`} className="group cursor-pointer block">
-                <div className="rounded-xl overflow-hidden relative" style={{ aspectRatio: '2/3', background: gradient }}>
-                  {thumbSrc && <img src={thumbSrc} alt={title} className="w-full h-full object-cover" loading="lazy" />}
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.9)' }}>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21" /></svg>
-                    </div>
-                  </div>
-                  {seasons && (
-                    <div className="absolute bottom-2 left-2">
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.75)', color: 'rgba(255,255,255,0.7)' }}>
-                        {seasons} {seasons > 1 ? t.series.seasons : t.series.season}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <p className="text-xs font-medium text-white mt-2 truncate">{title}</p>
-                {seasons && (
-                  <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>
-                    {seasons} {seasons > 1 ? t.series.seasonsLabel : t.series.seasonLabel}
-                  </p>
-                )}
-              </Link>
-            )
-          })}
+          {shows.map(s => <ShowCard key={s.id} show={s} />)}
         </div>
       )}
     </div>
