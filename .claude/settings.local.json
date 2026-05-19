@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npx vite *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(node_modules/.bin/vite)",
+      "Bash(curl -sv http://localhost:5173)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(pkill -f \"vite\")",
+      "Bash(node_modules/.bin/vite --port 5173)"
+    ]
+  }
+}
