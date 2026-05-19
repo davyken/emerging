@@ -1,276 +1,206 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { getRecentlyAdded, getLibraries, getLibraryItems, getThumbUrl } from '../../services/plexApi'
-import { useAuthStore } from '../../store/authStore'
-import type { PlexMedia } from '../../types/plex'
+import { Link, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../i18n/LanguageContext'
+import {
+  getTrending, getPopularMovies, getTopRatedMovies,
+  getPopularShows, getNowPlayingMovies, tmdbImg,
+} from '../../services/tmdbApi'
+import type { TmdbMovie, TmdbShow, TmdbTrendingItem } from '../../types/tmdb'
 
-const GRADIENTS = [
-  'linear-gradient(135deg,#0a1628,#1a4a8c,#0d2b5c)',
-  'linear-gradient(135deg,#1a0a00,#4a2500,#2a1200)',
-  'linear-gradient(135deg,#001a10,#004a2d,#001f14)',
-  'linear-gradient(135deg,#0a0a1a,#2a2a6a,#0a0a3a)',
-  'linear-gradient(135deg,#1a0500,#5a1500,#2a0800)',
-  'linear-gradient(135deg,#1a1a00,#4a4a00,#2a2a00)',
-  'linear-gradient(135deg,#0a1a1a,#004a4a,#001f1f)',
-  'linear-gradient(135deg,#1a0a1a,#4a004a,#2a002a)',
-]
-
-interface MediaCardProps {
-  media: PlexMedia
-  token: string
-  size?: 'sm' | 'md' | 'lg'
-  index?: number
-}
-
-function MediaCard({ media, token, size = 'md', index = 0 }: MediaCardProps) {
-  const thumb = media.thumb ? getThumbUrl(token, media.thumb) : null
-  const gradient = GRADIENTS[index % GRADIENTS.length]
-
+function PosterCard({ id, type, title, poster, year, rating, width = 130 }: {
+  id: number; type: 'movie' | 'tv'; title: string
+  poster: string | null; year?: string; rating?: number; width?: number
+}) {
+  const img = tmdbImg(poster, 'w342')
   return (
-    <Link to={`/media/${media.ratingKey}`} className="group block cursor-pointer flex-shrink-0">
-      <div
-        className="rounded-xl overflow-hidden relative"
-        style={{
-          aspectRatio: '2/3',
-          background: thumb ? undefined : gradient,
-          width: size === 'sm' ? '110px' : size === 'lg' ? '160px' : '130px',
-        }}
-      >
-        {thumb && <img src={thumb} alt={media.title} className="w-full h-full object-cover" loading="lazy" />}
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.9)' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21" /></svg>
+    <Link to={`/media/${type}/${id}`} className="group block flex-shrink-0">
+      <div className="rounded-xl overflow-hidden relative" style={{ width, aspectRatio: '2/3', background: '#1a1a1a' }}>
+        {img
+          ? <img src={img} alt={title} className="w-full h-full object-cover" loading="lazy" />
+          : <div className="w-full h-full flex items-center justify-center" style={{ color: '#333' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
+            </div>
+        }
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.95)' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21" /></svg>
           </div>
         </div>
+        {rating && rating > 0 && (
+          <div className="absolute top-2 right-2">
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.75)', color: 'var(--color-gold)' }}>
+              ★ {rating.toFixed(1)}
+            </span>
+          </div>
+        )}
       </div>
-      <p className="text-xs font-medium text-white mt-2 truncate" style={{ maxWidth: size === 'sm' ? '110px' : size === 'lg' ? '160px' : '130px' }}>{media.title}</p>
-      {media.year && <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>{media.year}</p>}
+      <p className="text-xs font-medium text-white mt-2 truncate" style={{ maxWidth: width }}>{title}</p>
+      {year && <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>{year}</p>}
     </Link>
   )
 }
 
-interface SectionRowProps {
-  title: string
-  items: PlexMedia[]
-  token: string
-  viewAllLabel: string
-}
-
-function SectionRow({ title, items, token, viewAllLabel }: SectionRowProps) {
-  if (items.length === 0) return null
+function Section({ title, viewAllTo, viewAllLabel, children }: {
+  title: string; viewAllTo: string; viewAllLabel: string; children: React.ReactNode
+}) {
   return (
     <section className="mb-10">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-white">{title}</h2>
-        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{viewAllLabel}</button>
+        <Link to={viewAllTo} className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{viewAllLabel}</Link>
       </div>
       <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
-        {items.slice(0, 12).map((m, i) => (
-          <MediaCard key={m.ratingKey} media={m} token={token} index={i} />
-        ))}
+        {children}
       </div>
     </section>
   )
 }
 
 export function Dashboard() {
-  const token = useAuthStore((s) => s.token) ?? ''
   const { t } = useLanguage()
-  const [recent, setRecent] = useState<PlexMedia[]>([])
-  const [trending, setTrending] = useState<PlexMedia[]>([])
-  const [african, setAfrican] = useState<PlexMedia[]>([])
-  const [hero, setHero] = useState<PlexMedia | null>(null)
-  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+
+  const [hero, setHero]             = useState<TmdbTrendingItem | null>(null)
+  const [trending, setTrending]     = useState<TmdbTrendingItem[]>([])
+  const [popular, setPopular]       = useState<TmdbMovie[]>([])
+  const [topRated, setTopRated]     = useState<TmdbMovie[]>([])
+  const [nowPlaying, setNowPlaying] = useState<TmdbMovie[]>([])
+  const [shows, setShows]           = useState<TmdbShow[]>([])
+  const [loading, setLoading]       = useState(true)
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [libs, recentItems] = await Promise.all([
-          getLibraries(token).catch(() => []),
-          getRecentlyAdded(token).catch(() => []),
-        ])
-        const allItems: PlexMedia[] = recentItems ?? []
+    Promise.all([
+      getTrending(),
+      getPopularMovies(),
+      getTopRatedMovies(),
+      getNowPlayingMovies(),
+      getPopularShows(),
+    ]).then(([trend, pop, top, now, tv]) => {
+      setTrending(trend)
+      setHero(trend[0] ?? null)
+      setPopular(pop.slice(0, 12))
+      setTopRated(top.slice(0, 12))
+      setNowPlaying(now.slice(0, 12))
+      setShows(tv.slice(0, 12))
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [])
 
-        if ((libs ?? []).length > 0) {
-          const firstLib = (libs ?? [])[0]
-          const libItems = await getLibraryItems(token, firstLib.key).catch(() => [])
-          setTrending(libItems.slice(0, 8))
-          setAfrican(libItems.slice(8, 16))
-        }
-
-        setRecent(recentItems ?? [])
-        setHero(allItems[0] ?? null)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [token])
+  const heroTitle    = hero ? ('title' in hero ? hero.title : (hero as TmdbShow).name) : t.dashboard.heroTitle
+  const heroOverview = hero?.overview ?? t.dashboard.heroDesc
+  const heroBackdrop = hero ? tmdbImg(hero.backdrop_path, 'w1280') : null
+  const heroType     = hero?.media_type === 'tv' ? 'tv' : 'movie'
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+
       {/* HERO */}
-      <section className="relative" style={{ minHeight: '55vh' }}>
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `
-              radial-gradient(ellipse 100% 80% at 65% 0%, #2a1600 0%, #7a3a00 20%, #c46200 30%, #6b3000 45%, #1a0a00 65%, #0a0a0a 85%)
-            `,
-          }}
-        />
-        <div className="absolute inset-0 overflow-hidden" style={{ pointerEvents: 'none' }}>
-          {[40, 48, 55, 62, 68, 74].map((left, i) => (
-            <div key={i} className="absolute bottom-0" style={{ left: `${left}%`, width: `${12 + i * 3}px`, height: `${40 + i * 5}%`, background: 'linear-gradient(to top, #050300 0%, #100800 70%, transparent 100%)', borderRadius: '3px 3px 0 0' }} />
-          ))}
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 30%, #0a0a0a 100%)' }} />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.7) 0%, transparent 60%)' }} />
-        </div>
+      <section className="relative overflow-hidden" style={{ minHeight: '55vh' }}>
+        {heroBackdrop
+          ? <img src={heroBackdrop} alt={heroTitle} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center top' }} />
+          : <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 100% 80% at 65% 0%, #2a1600 0%, #7a3a00 20%, #c46200 30%, #6b3000 45%, #1a0a00 65%, #0a0a0a 85%)' }} />
+        }
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(10,10,10,0.92) 30%, rgba(10,10,10,0.5) 65%, rgba(10,10,10,0.1) 100%)' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(10,10,10,1) 0%, rgba(10,10,10,0.4) 40%, transparent 70%)' }} />
 
         <div className="relative z-10 px-4 sm:px-8 pt-10 sm:pt-16 pb-8 sm:pb-12 max-w-xl">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: 'var(--color-teal)', color: '#000' }}>{t.dashboard.trendingBadge}</span>
-          </div>
-          <h1 className="text-4xl font-black mb-3 leading-tight" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-            {hero?.title ?? t.dashboard.heroTitle}
-          </h1>
-          <p className="text-sm leading-relaxed mb-6 max-w-md" style={{ color: 'rgba(255,255,255,0.7)' }}>
-            {hero?.summary ?? t.dashboard.heroDesc}
-          </p>
-          <div className="flex gap-3">
-            <Link
-              to={hero ? `/media/${hero.ratingKey}` : '#'}
-              className="flex items-center gap-2 font-bold px-5 py-2.5 rounded-lg text-sm transition-colors"
-              style={{ background: 'var(--color-gold)', color: '#000' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-              {t.dashboard.watch}
-            </Link>
-            <button className="flex items-center gap-2 font-semibold px-5 py-2.5 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.15)' }}>
-              {t.dashboard.moreInfo}
-            </button>
-          </div>
+          {!loading && (
+            <>
+              <div className="inline-flex items-center gap-2 mb-4">
+                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: 'var(--color-teal)', color: '#000' }}>{t.dashboard.trendingBadge}</span>
+                {hero && (
+                  <span className="text-xs capitalize" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    {heroType === 'tv' ? 'TV Show' : 'Film'}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black mb-3 leading-tight" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                {heroTitle.toUpperCase()}
+              </h1>
+              <p className="text-sm leading-relaxed mb-6 max-w-md" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                {heroOverview.slice(0, 180)}{heroOverview.length > 180 ? '...' : ''}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => hero && navigate(`/watch/${heroType}/${hero.id}`)}
+                  className="flex items-center gap-2 font-bold px-5 py-2.5 rounded-lg text-sm transition-colors"
+                  style={{ background: 'var(--color-gold)', color: '#000' }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
+                  {t.dashboard.watch}
+                </button>
+                <button
+                  onClick={() => hero && navigate(`/media/${heroType}/${hero.id}`)}
+                  className="flex items-center gap-2 font-semibold px-5 py-2.5 rounded-lg text-sm"
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.15)' }}
+                >
+                  {t.dashboard.moreInfo}
+                </button>
+              </div>
+            </>
+          )}
+          {loading && (
+            <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin mt-8" style={{ borderColor: 'var(--color-gold)', borderTopColor: 'transparent' }} />
+          )}
         </div>
       </section>
 
-      {/* Content rows */}
+      {/* Rows */}
       <div className="px-4 sm:px-8 py-6">
         {loading ? (
-          <div className="flex items-center justify-center py-20">
+          <div className="flex items-center justify-center py-16">
             <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-gold)', borderTopColor: 'transparent' }} />
           </div>
         ) : (
           <>
-            {trending.length > 0 ? (
-              <SectionRow title={t.dashboard.trending} items={trending} token={token} viewAllLabel={t.dashboard.viewAll} />
-            ) : (
-              <FallbackRow title={t.dashboard.trending} viewAllLabel={t.dashboard.viewAll} />
-            )}
+            <Section title={t.dashboard.trending} viewAllTo="/films" viewAllLabel={t.dashboard.viewAll}>
+              {trending.slice(0, 12).map(item => {
+                const isMovie = item.media_type === 'movie'
+                const m = item as TmdbMovie
+                const s = item as TmdbShow
+                return (
+                  <PosterCard
+                    key={`${item.media_type}-${item.id}`}
+                    id={item.id}
+                    type={item.media_type}
+                    title={isMovie ? m.title : s.name}
+                    poster={item.poster_path}
+                    year={(isMovie ? m.release_date : s.first_air_date)?.slice(0, 4)}
+                    rating={item.vote_average}
+                  />
+                )
+              })}
+            </Section>
 
-            {african.length > 0 ? (
-              <AfricanOriginalsSection items={african} token={token} title={t.dashboard.africanOriginals} viewAllLabel={t.dashboard.viewAll} />
-            ) : (
-              <FallbackAfricanSection title={t.dashboard.africanOriginals} viewAllLabel={t.dashboard.viewAll} />
-            )}
+            <Section title="Now Playing" viewAllTo="/films" viewAllLabel={t.dashboard.viewAll}>
+              {nowPlaying.map(m => (
+                <PosterCard key={m.id} id={m.id} type="movie" title={m.title}
+                  poster={m.poster_path} year={m.release_date?.slice(0, 4)} rating={m.vote_average} />
+              ))}
+            </Section>
 
-            {recent.length > 0 ? (
-              <SectionRow title={t.dashboard.recentlyAdded} items={recent} token={token} viewAllLabel={t.dashboard.viewAll} />
-            ) : (
-              <FallbackRow title={t.dashboard.recentlyAdded} viewAllLabel={t.dashboard.viewAll} />
-            )}
+            <Section title={t.dashboard.africanOriginals} viewAllTo="/series" viewAllLabel={t.dashboard.viewAll}>
+              {shows.map(s => (
+                <PosterCard key={s.id} id={s.id} type="tv" title={s.name}
+                  poster={s.poster_path} year={s.first_air_date?.slice(0, 4)} rating={s.vote_average} />
+              ))}
+            </Section>
+
+            <Section title={t.dashboard.recentlyAdded} viewAllTo="/films" viewAllLabel={t.dashboard.viewAll}>
+              {topRated.map(m => (
+                <PosterCard key={m.id} id={m.id} type="movie" title={m.title}
+                  poster={m.poster_path} year={m.release_date?.slice(0, 4)} rating={m.vote_average} />
+              ))}
+            </Section>
+
+            <Section title="Popular Movies" viewAllTo="/films" viewAllLabel={t.dashboard.viewAll}>
+              {popular.map(m => (
+                <PosterCard key={m.id} id={m.id} type="movie" title={m.title}
+                  poster={m.poster_path} year={m.release_date?.slice(0, 4)} rating={m.vote_average} />
+              ))}
+            </Section>
           </>
         )}
       </div>
     </div>
-  )
-}
-
-function FallbackRow({ title, viewAllLabel }: { title: string; viewAllLabel: string }) {
-  const placeholders = ['Shadow of the Void', 'Midnight Echoes', 'Velocity Prime', 'Ancient Relics']
-  const grads = ['linear-gradient(135deg,#0a1628,#1a4a8c)', 'linear-gradient(135deg,#1a0a00,#5a2500)', 'linear-gradient(135deg,#001a10,#004a2d)', 'linear-gradient(135deg,#1a1000,#5a4000)']
-  return (
-    <section className="mb-10">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-bold text-white">{title}</h2>
-        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{viewAllLabel}</button>
-      </div>
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {placeholders.map((t, i) => (
-          <div key={t} className="flex-shrink-0">
-            <div className="rounded-xl overflow-hidden mb-2" style={{ width: '130px', aspectRatio: '2/3', background: grads[i] }} />
-            <p className="text-xs font-medium text-white truncate" style={{ maxWidth: '130px' }}>{t}</p>
-            <p className="text-[10px] mt-0.5" style={{ color: '#555' }}>2025 · ⭐ 8.{i + 1}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function AfricanOriginalsSection({ items, token, title, viewAllLabel }: { items: PlexMedia[]; token: string; title: string; viewAllLabel: string }) {
-  const featured = items[0]
-  const others = items.slice(1, 4)
-  return (
-    <section className="mb-10">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-bold text-white">{title}</h2>
-        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{viewAllLabel}</button>
-      </div>
-      <div className="grid grid-cols-3 gap-3" style={{ gridTemplateRows: 'auto' }}>
-        <Link to={`/media/${featured.ratingKey}`} className="col-span-1 row-span-2 group cursor-pointer">
-          <div className="rounded-xl overflow-hidden relative" style={{ aspectRatio: '3/4', background: 'linear-gradient(135deg,#1a0800,#4a2000,#8b4500)' }}>
-            {featured.thumb && <img src={getThumbUrl(token, featured.thumb)} alt={featured.title} className="w-full h-full object-cover" loading="lazy" />}
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%)' }} />
-            <div className="absolute bottom-3 left-3 right-3">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded mb-1 inline-block" style={{ background: 'var(--color-teal)', color: '#000' }}>SÉRIE TOFU TV</span>
-              <p className="text-sm font-bold text-white">{featured.title}</p>
-              <p className="text-[10px] mt-0.5 line-clamp-2" style={{ color: 'rgba(255,255,255,0.6)' }}>{featured.summary?.slice(0, 80)}</p>
-            </div>
-          </div>
-        </Link>
-        {others.map((m, i) => (
-          <Link key={m.ratingKey} to={`/media/${m.ratingKey}`} className="group cursor-pointer">
-            <div className="rounded-xl overflow-hidden" style={{ aspectRatio: '16/10', background: GRADIENTS[i + 2] }}>
-              {m.thumb && <img src={getThumbUrl(token, m.thumb)} alt={m.title} className="w-full h-full object-cover" loading="lazy" />}
-            </div>
-            <p className="text-xs font-medium text-white mt-1.5 truncate">{m.title}</p>
-          </Link>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function FallbackAfricanSection({ title, viewAllLabel }: { title: string; viewAllLabel: string }) {
-  const items = [
-    { title: 'Fils du Soleil', desc: "Découvrez l'histoire secrète du grand Mansa Musa dans cette épopée historique à gros budget.", gradient: 'linear-gradient(135deg,#1a0800,#6a3000,#8b4000)', featured: true },
-    { title: 'Kemet Rising', gradient: 'linear-gradient(135deg,#1a0500,#5a1000,#2a0a00)', featured: false },
-    { title: 'Nile Chronicles', gradient: 'linear-gradient(135deg,#0a1010,#003030,#001515)', featured: false },
-    { title: 'Ubuntu Protocol', gradient: 'linear-gradient(135deg,#0a0a1a,#2a2060,#151030)', featured: false },
-  ]
-  return (
-    <section className="mb-10">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-bold text-white">{title}</h2>
-        <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{viewAllLabel}</button>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div className="col-span-1 row-span-2 rounded-xl overflow-hidden relative cursor-pointer group" style={{ aspectRatio: '3/4', background: items[0].gradient }}>
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%)' }} />
-          <div className="absolute bottom-3 left-3 right-3">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded mb-1 inline-block" style={{ background: 'var(--color-teal)', color: '#000' }}>SÉRIE TOFU TV</span>
-            <p className="text-sm font-bold text-white">{items[0].title}</p>
-            <p className="text-[10px] mt-0.5 line-clamp-2" style={{ color: 'rgba(255,255,255,0.6)' }}>{items[0].desc}</p>
-          </div>
-        </div>
-        {items.slice(1).map((m) => (
-          <div key={m.title} className="cursor-pointer group">
-            <div className="rounded-xl overflow-hidden" style={{ aspectRatio: '16/10', background: m.gradient }} />
-            <p className="text-xs font-medium text-white mt-1.5">{m.title}</p>
-          </div>
-        ))}
-      </div>
-    </section>
   )
 }

@@ -11,10 +11,10 @@ export function tmdbImg(path: string | null | undefined, size = 'w500'): string 
   return path ? `https://image.tmdb.org/t/p/${size}${path}` : null
 }
 
-async function get<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
+async function get<T>(endpoint: string, params: Record<string, string> = {}, noLanguage = false): Promise<T> {
   const url = new URL(`${BASE}/${endpoint}`)
   url.searchParams.set('api_key', key())
-  url.searchParams.set('language', 'en-US')
+  if (!noLanguage) url.searchParams.set('language', 'en-US')
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
   const res = await fetch(url.toString())
   if (!res.ok) throw new Error(`TMDB ${res.status}`)
@@ -52,8 +52,18 @@ export async function getMoviesByGenre(genreId: number, page = 1): Promise<TmdbM
   return data.results
 }
 
+// Fetch videos without language filter so all trailers are returned
+export async function getMovieVideos(id: number): Promise<TmdbVideo[]> {
+  const data = await get<{ results: TmdbVideo[] }>(`movie/${id}/videos`, {}, true)
+  return data.results ?? []
+}
+
 export async function getMovieDetail(id: number): Promise<TmdbMovie & { videos: { results: TmdbVideo[] }; credits: { cast: TmdbCastMember[] } }> {
-  return get(`movie/${id}`, { append_to_response: 'videos,credits' })
+  const [detail, videos] = await Promise.all([
+    get<TmdbMovie & { credits: { cast: TmdbCastMember[] } }>(`movie/${id}`, { append_to_response: 'credits' }),
+    getMovieVideos(id),
+  ])
+  return { ...detail, videos: { results: videos } }
 }
 
 export async function getMovieGenres(): Promise<TmdbGenre[]> {
@@ -81,8 +91,17 @@ export async function getShowsByGenre(genreId: number, page = 1): Promise<TmdbSh
   return data.results
 }
 
+export async function getShowVideos(id: number): Promise<TmdbVideo[]> {
+  const data = await get<{ results: TmdbVideo[] }>(`tv/${id}/videos`, {}, true)
+  return data.results ?? []
+}
+
 export async function getShowDetail(id: number): Promise<TmdbShow & { videos: { results: TmdbVideo[] }; credits: { cast: TmdbCastMember[] } }> {
-  return get(`tv/${id}`, { append_to_response: 'videos,credits' })
+  const [detail, videos] = await Promise.all([
+    get<TmdbShow & { credits: { cast: TmdbCastMember[] } }>(`tv/${id}`, { append_to_response: 'credits' }),
+    getShowVideos(id),
+  ])
+  return { ...detail, videos: { results: videos } }
 }
 
 export async function getTVGenres(): Promise<TmdbGenre[]> {
