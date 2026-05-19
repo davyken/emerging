@@ -255,32 +255,32 @@ export function Watch() {
           className="absolute top-0 left-0 right-0 flex items-center px-3 sm:px-6 h-12 sm:h-14 z-20 transition-opacity duration-500 pointer-events-none"
           style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)', opacity: showControls ? 1 : 0 }}
         >
-          <div className="pointer-events-auto flex items-center w-full gap-3">
+          <div className="flex items-center w-full gap-3 pointer-events-none">
             <button
               onClick={() => navigate(-1)}
-              className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 hover:bg-white/15 transition-colors"
+              className="flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 hover:bg-white/15 transition-colors pointer-events-auto"
               style={{ color: 'rgba(255,255,255,0.9)' }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
             </button>
 
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-semibold text-white truncate max-w-[150px] sm:max-w-xs">{title}</span>
+              <span className="text-xs font-semibold text-white truncate max-w-[120px] sm:max-w-xs">{title}</span>
               <span className="text-[10px] px-2 py-0.5 rounded flex-shrink-0" style={{ background: 'rgba(255,60,60,0.25)', color: '#ff7777', border: '1px solid rgba(255,60,60,0.3)' }}>
                 TRAILER
               </span>
             </div>
 
-            <div className="flex-1" />
-
             <button
               onClick={() => setHlsQualityDemo(true)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors hover:bg-white/10"
+              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors hover:bg-white/10 pointer-events-auto flex-shrink-0"
               style={{ color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.3)', background: 'rgba(201,168,76,0.1)' }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></svg>
               <span>HLS Demo</span>
             </button>
+
+            <div className="flex-1" />
           </div>
         </div>
       </div>
