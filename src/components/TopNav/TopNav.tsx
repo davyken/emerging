@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { useRef, useState, useEffect } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../i18n/LanguageContext'
 
 interface TopNavProps {
@@ -7,7 +8,9 @@ interface TopNavProps {
 
 export function TopNav({ onMenuClick }: TopNavProps) {
   const { t, lang, toggle } = useLanguage()
-  const initial = 'U'
+  const navigate = useNavigate()
+  const [showProfile, setShowProfile] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
 
   const NAV_LINKS = [
     { to: '/accueil', label: t.topNav.home },
@@ -17,9 +20,24 @@ export function TopNav({ onMenuClick }: TopNavProps) {
     { to: '/ma-liste', label: t.topNav.myList },
   ]
 
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setShowProfile(false)
+      }
+    }
+    if (showProfile) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showProfile])
+
+  function handleLogout() {
+    setShowProfile(false)
+    navigate('/login')
+  }
+
   return (
     <div
-      className="flex items-center gap-3 px-3 lg:px-6 h-11 flex-shrink-0"
+      className="flex items-center gap-3 px-3 lg:px-6 h-11 flex-shrink-0 relative"
       style={{
         background: 'rgba(10,10,10,0.97)',
         backdropFilter: 'blur(12px)',
@@ -104,12 +122,113 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         </svg>
       </button>
 
-      {/* Avatar */}
-      <div
-        className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold cursor-pointer flex-shrink-0"
-        style={{ background: 'var(--color-gold)', color: '#000' }}
-      >
-        {initial}
+      {/* Avatar + profile dropdown */}
+      <div ref={profileRef} className="relative flex-shrink-0">
+        <button
+          onClick={() => setShowProfile(v => !v)}
+          className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold cursor-pointer transition-all"
+          style={{
+            background: showProfile ? 'var(--color-gold)' : 'var(--color-gold)',
+            color: '#000',
+            outline: showProfile ? '2px solid rgba(201,168,76,0.5)' : 'none',
+            outlineOffset: '2px',
+          }}
+        >
+          A
+        </button>
+
+        {/* Profile panel */}
+        {showProfile && (
+          <div
+            className="absolute right-0 top-full mt-2 rounded-xl z-50 overflow-hidden"
+            style={{
+              width: '280px',
+              background: '#111',
+              border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+            }}
+          >
+            {/* Header */}
+            <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-base font-black flex-shrink-0" style={{ background: 'var(--color-gold)', color: '#000' }}>
+                  A
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white leading-tight">Alex Martin</p>
+                  <p className="text-[11px] mt-0.5 truncate" style={{ color: '#666' }}>alex.martin@email.com</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Subscription info */}
+            <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] tracking-widest uppercase" style={{ color: '#555' }}>{t.profile.subscription}</p>
+                <span
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(201,168,76,0.15)', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.3)' }}
+                >
+                  {t.profile.status}
+                </span>
+              </div>
+
+              <div className="rounded-lg px-3 py-2.5 mb-3" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.15)' }}>
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2">
+                    <polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.8 5.8,21 7,14 2,9.3 9,8.5" />
+                  </svg>
+                  <span className="text-sm font-bold" style={{ color: 'var(--color-gold)' }}>{t.profile.plan}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: '#555' }}>{t.profile.memberSince}</p>
+                  <p className="text-[11px] font-semibold text-white leading-tight">{t.profile.memberSinceValue}</p>
+                </div>
+                <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: '#555' }}>{t.profile.renewal}</p>
+                  <p className="text-[11px] font-semibold text-white leading-tight">{t.profile.renewalValue}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-2 py-2">
+              <button
+                onClick={() => setShowProfile(false)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-white/5 text-left"
+                style={{ color: '#888' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                </svg>
+                {t.profile.accountSettings}
+              </button>
+              <button
+                onClick={() => setShowProfile(false)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-white/5 text-left"
+                style={{ color: '#888' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                {t.profile.help}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-red-500/10 text-left"
+                style={{ color: '#ef4444' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                {t.profile.logout}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
