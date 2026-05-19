@@ -264,14 +264,14 @@ export function Watch() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
             </button>
 
-            <div className="flex-1" />
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-white truncate max-w-[200px] sm:max-w-xs">{title}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-semibold text-white truncate max-w-[150px] sm:max-w-xs">{title}</span>
               <span className="text-[10px] px-2 py-0.5 rounded flex-shrink-0" style={{ background: 'rgba(255,60,60,0.25)', color: '#ff7777', border: '1px solid rgba(255,60,60,0.3)' }}>
                 TRAILER
               </span>
             </div>
+
+            <div className="flex-1" />
           </div>
         </div>
 
@@ -340,8 +340,11 @@ export function Watch() {
         <button onClick={() => navigate(-1)} className="flex items-center justify-center w-8 h-8 rounded-lg mr-3 flex-shrink-0 hover:bg-white/10 transition-colors" style={{ color: 'rgba(255,255,255,0.8)' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
         </button>
+        
+        <span className="text-xs sm:text-sm font-semibold text-white truncate max-w-[150px] sm:max-w-sm mr-2">{title}</span>
+
         <div className="flex-1" />
-        <span className="text-xs sm:text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-sm">{title}</span>
+
         <button
           onClick={(e) => { e.stopPropagation(); setHlsQualityDemo(false) }}
           className="ml-4 text-xs px-3 py-1 rounded-lg flex-shrink-0 transition-colors hover:bg-white/10"
@@ -364,7 +367,7 @@ export function Watch() {
       {/* Settings panel */}
       {showSettings && (
         <div
-          className="absolute right-3 sm:right-6 bottom-16 sm:bottom-[5.5rem] rounded-xl z-30 overflow-hidden"
+          className="absolute right-3 sm:right-6 bottom-16 sm:bottom-[5.5rem] rounded-xl z-30 overflow-hidden max-h-[70vh] overflow-y-auto"
           style={{ width: '230px', background: 'rgba(15,15,15,0.97)', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', boxShadow: '0 8px 32px rgba(0,0,0,0.7)' }}
           onClick={(e) => e.stopPropagation()}
         >

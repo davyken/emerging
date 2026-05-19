@@ -27,6 +27,13 @@ export async function getTrending(): Promise<TmdbTrendingItem[]> {
   return data.results
 }
 
+// ── Search ──────────────────────────────────────────────────────────────────
+export async function searchMulti(query: string, page = 1): Promise<TmdbTrendingItem[]> {
+  if (!query.trim()) return []
+  const data = await get<TmdbListResult<TmdbTrendingItem>>('search/multi', { query, page: String(page) })
+  return data.results.filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+}
+
 // ── Movies ──────────────────────────────────────────────────────────────────
 export async function getPopularMovies(page = 1): Promise<TmdbMovie[]> {
   const data = await get<TmdbListResult<TmdbMovie>>('movie/popular', { page: String(page) })

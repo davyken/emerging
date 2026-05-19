@@ -55,6 +55,14 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         </svg>
       </button>
 
+      {/* Logo — mobile only, displayed after hamburger */}
+      <img
+        src="/logo.png"
+        alt="Emerging Stream"
+        className="lg:hidden h-5 w-auto object-contain flex-shrink-0 cursor-pointer ml-1"
+        onClick={() => navigate('/accueil')}
+      />
+
       {/* Nav links — hidden on mobile */}
       <div className="hidden lg:flex items-center gap-5">
         {NAV_LINKS.map(({ to, label }) => (
