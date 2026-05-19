@@ -128,7 +128,7 @@ export function Dashboard() {
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.7) 0%, transparent 60%)' }} />
         </div>
 
-        <div className="relative z-10 px-8 pt-16 pb-12 max-w-xl">
+        <div className="relative z-10 px-4 sm:px-8 pt-10 sm:pt-16 pb-8 sm:pb-12 max-w-xl">
           <div className="inline-flex items-center gap-2 mb-4">
             <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: 'var(--color-teal)', color: '#000' }}>{t.dashboard.trendingBadge}</span>
           </div>
@@ -155,7 +155,7 @@ export function Dashboard() {
       </section>
 
       {/* Content rows */}
-      <div className="px-8 py-6">
+      <div className="px-4 sm:px-8 py-6">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-gold)', borderTopColor: 'transparent' }} />

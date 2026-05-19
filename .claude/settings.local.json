@@ -14,7 +14,9 @@
       "Bash(node_modules/.bin/vite --port 5173)",
       "Bash(npm run *)",
       "Skill(agent-browser)",
-      "Bash(curl -s http://localhost:5174/)"
+      "Bash(curl -s http://localhost:5174/)",
+      "Bash(agent-browser skills *)",
+      "Bash(agent-browser session *)"
     ]
   }
 }

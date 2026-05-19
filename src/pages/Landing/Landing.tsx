@@ -21,11 +21,11 @@ function NavBar() {
   const { t, lang, toggle } = useLanguage()
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 flex items-center gap-6 px-8 h-14"
+      className="fixed top-0 left-0 right-0 z-50 flex items-center gap-4 px-4 sm:px-8 h-14"
       style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, transparent 100%)' }}
     >
-      <img src="/logo.png" alt="EmergingStream" className="flex-shrink-0" style={{ height: '28px', width: 'auto' }} />
-      <nav className="flex items-center gap-5 flex-1">
+      <img src="/logo.png" alt="EmergingStream" className="flex-shrink-0" style={{ height: '24px', width: 'auto' }} />
+      <nav className="hidden md:flex items-center gap-5 flex-1">
         {t.landing.navItems.map((item, i) => (
           <a
             key={item}
@@ -37,36 +37,33 @@ function NavBar() {
           </a>
         ))}
       </nav>
-      <div className="flex items-center gap-4">
-        <div className="relative">
+      <div className="flex-1 md:flex-none" />
+      <div className="flex items-center gap-2 sm:gap-4">
+        <div className="relative hidden sm:block">
           <input
             type="text"
             placeholder={t.landing.searchPlaceholder}
-            className="text-sm text-white pl-8 pr-3 py-1.5 rounded-lg outline-none w-44"
+            className="text-sm text-white pl-8 pr-3 py-1.5 rounded-lg outline-none w-36 sm:w-44"
             style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
           />
           <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
           </svg>
         </div>
-        <button className="text-gray-400 hover:text-white transition-colors">
+        <button className="hidden sm:block text-gray-400 hover:text-white transition-colors">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-        </button>
-        <button className="text-gray-400 hover:text-white transition-colors">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" /></svg>
         </button>
         {/* Language toggle */}
         <button
           onClick={toggle}
-          className="text-xs font-bold px-2 py-1 rounded-md transition-colors"
+          className="text-xs font-bold px-2 py-1 rounded-md transition-colors flex-shrink-0"
           style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.25)' }}
         >
           {lang === 'en' ? 'FR' : 'EN'}
         </button>
-        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: 'var(--color-gold)', color: '#000' }}>U</div>
         <Link
           to="/login"
-          className="text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors"
+          className="text-sm font-semibold px-3 sm:px-4 py-1.5 rounded-lg transition-colors flex-shrink-0"
           style={{ background: 'var(--color-gold)', color: '#000' }}
         >
           {t.landing.login}
@@ -115,12 +112,12 @@ export function Landing() {
         </div>
 
         {/* Content */}
-        <div className="relative z-10 px-10 pt-24 pb-16 max-w-2xl">
+        <div className="relative z-10 px-4 sm:px-10 pt-20 sm:pt-24 pb-12 sm:pb-16 max-w-2xl">
           <div className="flex gap-2 mb-3 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
             <span style={{ background: 'var(--color-gold)', color: '#000', padding: '2px 8px', borderRadius: '4px', fontWeight: 700, fontSize: '10px' }}>{t.landing.featureLabel}</span>
             <span>⭐ 9.1</span><span>·</span><span>2025</span><span>·</span><span>2h44</span>
           </div>
-          <h1 className="text-5xl font-black mb-4 leading-none" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          <h1 className="text-3xl sm:text-5xl font-black mb-4 leading-none" style={{ fontFamily: "'DM Sans', sans-serif" }}>
             AEON: ASCENSION
           </h1>
           <div className="flex flex-wrap gap-2 mb-5">
@@ -148,7 +145,7 @@ export function Landing() {
       </section>
 
       {/* CAST + DETAILS + 4K */}
-      <section className="px-10 py-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <section className="px-4 sm:px-10 py-8 sm:py-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <h2 className="text-base font-bold mb-6" style={{ color: 'var(--color-gold)' }}>
             {t.landing.castTitle}
@@ -205,7 +202,7 @@ export function Landing() {
       </section>
 
       {/* SIMILAR CONTENT */}
-      <section className="px-10 py-8">
+      <section className="px-4 sm:px-10 py-8">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-bold text-white">{t.landing.similarContent}</h2>
           <button className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.landing.seeMore}</button>
@@ -226,7 +223,7 @@ export function Landing() {
       </section>
 
       {/* FOOTER */}
-      <footer className="px-10 py-12 mt-8" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <footer className="px-4 sm:px-10 py-10 sm:py-12 mt-8" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
           <div>
             <img src="/logo.png" alt="EmergingStream" className="mb-3" style={{ height: '30px', width: 'auto' }} />

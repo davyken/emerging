@@ -51,7 +51,7 @@ export function Films() {
   const displayItems = items.length > 0 ? items : null
 
   return (
-    <div className="min-h-full p-6" style={{ background: '#0a0a0a' }}>
+    <div className="min-h-full p-4 sm:p-6" style={{ background: '#0a0a0a' }}>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl font-black text-white mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>{t.films.title}</h1>
@@ -74,7 +74,7 @@ export function Films() {
       </div>
 
       {/* Featured banner */}
-      <div className="relative rounded-2xl overflow-hidden mb-8 cursor-pointer" style={{ height: '220px', background: 'linear-gradient(135deg,#0a1628,#1a4a8c,#c46a00,#8b4000)' }}>
+      <div className="relative rounded-2xl overflow-hidden mb-8 cursor-pointer" style={{ height: '180px', background: 'linear-gradient(135deg,#0a1628,#1a4a8c,#c46a00,#8b4000)' }}>
         {img(30) && <img src={img(30)} alt="Featured" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)' }} />
         <div className="relative z-10 h-full flex flex-col justify-end p-6">

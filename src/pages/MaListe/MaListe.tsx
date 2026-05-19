@@ -27,7 +27,7 @@ export function MaListe() {
     : `${saved.length} ${t.maListe.savedPlural}`
 
   return (
-    <div className="min-h-full p-6" style={{ background: '#0a0a0a' }}>
+    <div className="min-h-full p-4 sm:p-6" style={{ background: '#0a0a0a' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

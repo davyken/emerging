@@ -71,7 +71,7 @@ export function MovieDetail() {
     <div className="min-h-screen" style={{ background: '#0a0a0a', color: 'white' }}>
       {/* Hero section */}
       <div
-        className="relative px-8 py-8"
+        className="relative px-4 sm:px-8 py-6 sm:py-8"
         style={{
           background: 'linear-gradient(135deg, #0a0a0a 0%, #1a0f00 30%, #2a1800 50%, #0a0a0a 100%)',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -81,9 +81,9 @@ export function MovieDetail() {
           <div style={{ position: 'absolute', top: '-20%', right: '20%', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 70%)', borderRadius: '50%' }} />
         </div>
 
-        <div className="relative z-10 flex gap-8">
+        <div className="relative z-10 flex flex-col sm:flex-row gap-5 sm:gap-8">
           {/* Poster */}
-          <div className="flex-shrink-0 rounded-xl overflow-hidden" style={{ width: '180px', aspectRatio: '2/3', background: 'linear-gradient(135deg,#1a1000,#4a2800,#2a1400)' }}>
+          <div className="flex-shrink-0 rounded-xl overflow-hidden self-center sm:self-start" style={{ width: '140px', aspectRatio: '2/3', background: 'linear-gradient(135deg,#1a1000,#4a2800,#2a1400)' }}>
             {thumbSrc
               ? <img src={thumbSrc} alt={media.title} className="w-full h-full object-cover" />
               : <div className="w-full h-full flex items-center justify-center">
@@ -154,7 +154,7 @@ export function MovieDetail() {
             </div>
 
             {/* Credits */}
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               <div>
                 <p className="text-[10px] tracking-widest uppercase mb-1" style={{ color: '#555' }}>{t.movieDetail.director}</p>
                 <p className="text-sm text-white">{media.Director?.[0]?.tag ?? 'Elena Vance'}</p>
@@ -175,7 +175,7 @@ export function MovieDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="px-8 pt-6">
+      <div className="px-4 sm:px-8 pt-6">
         <div className="flex items-center gap-0 mb-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           {(['episodes', 'related', 'trailers'] as Tab[]).map((tabKey) => {
             const label = tabKey === 'episodes' ? t.movieDetail.episodes : tabKey === 'related' ? t.movieDetail.related : t.movieDetail.trailers

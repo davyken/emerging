@@ -77,9 +77,27 @@ export function TVGuide() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)', color: 'white' }}>
+      {/* Mobile: horizontal category chips */}
+      <div className="flex gap-2 overflow-x-auto px-3 pt-3 pb-2 md:hidden" style={{ scrollbarWidth: 'none' }}>
+        {t.tvGuide.categoryList.map((cat, idx) => (
+          <button
+            key={idx}
+            onClick={() => setCategoryIndex(idx)}
+            className="text-xs font-medium px-3 py-1.5 rounded-full flex-shrink-0 transition-all"
+            style={{
+              background: categoryIndex === idx ? 'var(--color-gold)' : 'rgba(255,255,255,0.07)',
+              color: categoryIndex === idx ? '#000' : '#888',
+              border: categoryIndex === idx ? 'none' : '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
       <div className="flex">
-        {/* Category sidebar */}
-        <div className="flex-shrink-0 px-3 py-5" style={{ width: '180px', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+        {/* Category sidebar — desktop only */}
+        <div className="hidden md:flex flex-col flex-shrink-0 px-3 py-5" style={{ width: '180px', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
           <p className="text-[10px] tracking-widest uppercase mb-3 px-2" style={{ color: '#555' }}>{t.tvGuide.categoriesLabel}</p>
           {t.tvGuide.categoryList.map((cat, idx) => (
             <button
@@ -98,7 +116,7 @@ export function TVGuide() {
         </div>
 
         {/* Main content */}
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-4 md:p-6">
           {/* Channels header */}
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-base font-bold text-white">{t.tvGuide.liveChannels}</h2>

@@ -117,7 +117,7 @@ export function Accueil() {
           background: 'linear-gradient(to top, rgba(10,10,10,1) 0%, rgba(10,10,10,0.5) 35%, transparent 70%)'
         }} />
 
-        <div className="relative z-10 h-full flex flex-col justify-end px-7 pb-8">
+        <div className="relative z-10 h-full flex flex-col justify-end px-4 sm:px-7 pb-6 sm:pb-8">
           <div className="inline-flex items-center gap-2 mb-3 flex-wrap">
             <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: '#2a9a2a', color: 'white' }}>{t.accueil.trendingBadge}</span>
             {heroGenre && <span className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>{heroGenre}</span>}
@@ -151,7 +151,7 @@ export function Accueil() {
       </div>
 
       {/* TRENDING NOW */}
-      <div className="px-7 pt-7 pb-5">
+      <div className="px-4 sm:px-7 pt-5 sm:pt-7 pb-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold text-white">{t.accueil.trendingNow}</h2>
           <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.accueil.viewAll}</Link>
@@ -167,12 +167,26 @@ export function Accueil() {
       </div>
 
       {/* AFRICAN ORIGINALS */}
-      <div className="px-7 pb-5">
+      <div className="px-4 sm:px-7 pb-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold text-white">{t.accueil.africanOriginals}</h2>
           <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.accueil.viewAll}</Link>
         </div>
-        <div className="grid gap-3" style={{ gridTemplateColumns: '200px repeat(2, 1fr)', gridTemplateRows: 'auto auto' }}>
+
+        {/* Mobile: horizontal scroll */}
+        <div className="flex gap-3 overflow-x-auto pb-2 md:hidden" style={{ scrollbarWidth: 'none' }}>
+          {MOCK_AFRICAN.map((m, i) => (
+            <Link key={m.id} to={`/media/${m.id}`} className="flex-shrink-0 group cursor-pointer">
+              <div className="rounded-xl overflow-hidden relative" style={{ width: 110, aspectRatio: '2/3', background: m.gradient }}>
+                {img(10 + i) && <img src={img(10 + i)} alt={m.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
+              </div>
+              <p className="text-xs text-white mt-1.5 font-medium truncate" style={{ maxWidth: 110 }}>{m.title}</p>
+            </Link>
+          ))}
+        </div>
+
+        {/* Desktop: featured grid */}
+        <div className="hidden md:grid gap-3" style={{ gridTemplateColumns: '200px repeat(2, 1fr)', gridTemplateRows: 'auto auto' }}>
           <Link to={`/media/${MOCK_AFRICAN[0].id}`} className="group cursor-pointer" style={{ gridRow: '1 / 3' }}>
             <div className="rounded-xl overflow-hidden relative w-full h-full" style={{ minHeight: '260px', background: MOCK_AFRICAN[0].gradient }}>
               {img(10) && <img src={img(10)} alt={MOCK_AFRICAN[0].title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
@@ -211,7 +225,7 @@ export function Accueil() {
       </div>
 
       {/* RECENTLY ADDED */}
-      <div className="px-7 pb-8">
+      <div className="px-4 sm:px-7 pb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold text-white">{t.accueil.recentlyAdded}</h2>
           <Link to="/films" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-gold)' }}>{t.accueil.viewAll}</Link>
