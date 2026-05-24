@@ -4,31 +4,17 @@ import { getChannels, getEPG } from '../../services/xg2gApi'
 import type { Channel, EPGProgram } from '../../types/xg2g'
 import { useLanguage } from '../../i18n/LanguageContext'
 
-const MOCK_CHANNELS: Channel[] = [
-  { id: 'bbc', name: 'BBC One HD', group: 'Actualités', streamUrl: '#', logo: '' },
-  { id: 'hbo', name: 'HBO Premium', group: 'Films', streamUrl: '#', logo: '' },
-  { id: 'sky', name: 'Sky Sports HD', group: 'Sport', streamUrl: '#', logo: '' },
-  { id: 'nat', name: 'National Geographic', group: 'Documentaires', streamUrl: '#', logo: '' },
-  { id: 'mar', name: 'Marvel Cinéma 24/7', group: 'Films', streamUrl: '#', logo: '' },
-  { id: 'mtv', name: 'MTV Hits Mandaya', group: 'Divertissement', streamUrl: '#', logo: '' },
-]
-
-const MOCK_EPG: Record<string, EPGProgram[]> = {
-  bbc: [{ channelId: 'bbc', title: 'Midland du Matin', description: '', start: new Date(Date.now() - 30 * 60000).toISOString(), stop: new Date(Date.now() + 60 * 60000).toISOString() }],
-  hbo: [{ channelId: 'hbo', title: 'House of the Dragon', description: '', start: new Date(Date.now() - 20 * 60000).toISOString(), stop: new Date(Date.now() + 100 * 60000).toISOString() }],
-  sky: [{ channelId: 'sky', title: 'Premier League · Man...', description: '', start: new Date(Date.now() - 10 * 60000).toISOString(), stop: new Date(Date.now() + 80 * 60000).toISOString() }],
-  nat: [{ channelId: 'nat', title: "Les Mystères de l'Océan", description: '', start: new Date(Date.now() - 5 * 60000).toISOString(), stop: new Date(Date.now() + 55 * 60000).toISOString() }],
-  mar: [{ channelId: 'mar', title: 'Avengers: Endgame', description: '', start: new Date(Date.now() - 60 * 60000).toISOString(), stop: new Date(Date.now() + 120 * 60000).toISOString() }],
-  mtv: [{ channelId: 'mtv', title: 'Classement Top 40', description: '', start: new Date(Date.now() - 15 * 60000).toISOString(), stop: new Date(Date.now() + 45 * 60000).toISOString() }],
-}
-
-const UPCOMING = [
-  { id: 'war', title: 'Guerres Intergalactiq...', badge: 'DANS 45MIN', badgeColor: 'var(--color-teal)', gradient: 'linear-gradient(135deg,#0a0a1a,#1a1a5a,#0d0d3a)', desc: 'Débute dans 45mn sur Sci-Fi Channel HD' },
-  { id: 'hod', title: 'House of the Dragon', badge: 'SPORT', badgeColor: '#e05a00', gradient: 'linear-gradient(135deg,#1a0800,#4a1500,#2a0a00)', desc: '' },
-  { id: 'act', title: 'Actualités', badge: 'NEWS', badgeColor: '#0060c0', gradient: 'linear-gradient(135deg,#001020,#002060,#001030)', desc: '' },
-]
-
 const FR_GROUP_KEYS = ['all', 'Divertissement', 'Sport', 'Actualités', 'Films', 'Documentaires', 'Enfants']
+
+function getChannelCategory(ch: Channel): string {
+  const search = (ch.name + ' ' + (ch.group || '')).toLowerCase()
+  if (/(sport|bein|espn|eurosport|golf|tennis|auto|moto|combat|ufc)/.test(search)) return 'Sport'
+  if (/(news|actualité|info|bfm|lci|cnews|cnn|bbc|france 24|sky news|al jazeera)/.test(search)) return 'Actualités'
+  if (/(film|ciné|cinema|hbo|movie|action|premier|osn|netflix|paramount)/.test(search)) return 'Films'
+  if (/(doc|nat geo|animaux|discovery|histoire|science|voyage|geo|ushua|planete)/.test(search)) return 'Documentaires'
+  if (/(enfant|kid|disney|toon|gulli|nickelodeon|boing|tiji|piwi|baby)/.test(search)) return 'Enfants'
+  return 'Divertissement'
+}
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -49,24 +35,27 @@ function ChannelProgress({ start, stop }: { start: string; stop: string }) {
 export function TVGuide() {
   const navigate = useNavigate()
   const { t } = useLanguage()
-  const [channels, setChannels] = useState<Channel[]>(MOCK_CHANNELS)
-  const [epg, setEpg] = useState<Record<string, EPGProgram[]>>(MOCK_EPG)
+  const [channels, setChannels] = useState<Channel[]>([])
+  const [epg, setEpg] = useState<Record<string, EPGProgram[]>>({})
   const [categoryIndex, setCategoryIndex] = useState(0)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    setIsLoading(true)
     Promise.all([getChannels(), getEPG()])
       .then(([chs, epgData]) => {
         if (chs.length > 0) setChannels(chs)
         if (Object.keys(epgData).length > 0) setEpg(epgData)
       })
       .catch(() => {})
+      .finally(() => setIsLoading(false))
   }, [])
 
   const filtered =
     categoryIndex === 0
       ? channels
-      : channels.filter((c) => c.group === FR_GROUP_KEYS[categoryIndex])
+      : channels.filter((c) => getChannelCategory(c) === FR_GROUP_KEYS[categoryIndex])
 
   function currentProg(channelId: string): EPGProgram | undefined {
     const now = Date.now()
@@ -74,6 +63,33 @@ export function TVGuide() {
       (p) => new Date(p.start).getTime() <= now && new Date(p.stop).getTime() >= now
     )
   }
+
+  const nowTime = Date.now()
+  const upcomingList = Object.values(epg)
+    .flat()
+    .filter(p => new Date(p.start).getTime() > nowTime)
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    .slice(0, 3)
+
+  const dynamicUpcoming = upcomingList.map((prog, i) => {
+    const ch = channels.find(c => c.id === prog.channelId)
+    const minToStart = Math.max(0, Math.round((new Date(prog.start).getTime() - nowTime) / 60000))
+    const badges = [
+      { color: 'var(--color-teal)', grad: 'linear-gradient(135deg,#0a0a1a,#1a1a5a,#0d0d3a)' },
+      { color: '#e05a00', grad: 'linear-gradient(135deg,#1a0800,#4a1500,#2a0a00)' },
+      { color: '#0060c0', grad: 'linear-gradient(135deg,#001020,#002060,#001030)' },
+    ]
+    const b = badges[i % badges.length]
+    return {
+      id: prog.channelId + '_' + i,
+      channelId: prog.channelId,
+      title: prog.title,
+      badge: minToStart === 0 ? 'MAINTENANT' : `DANS ${minToStart} MIN`,
+      badgeColor: b.color,
+      gradient: b.grad,
+      desc: ch ? `Débute dans ${minToStart}mn sur ${ch.name}` : ''
+    }
+  })
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)', color: 'white' }}>
@@ -130,9 +146,15 @@ export function TVGuide() {
             </div>
           </div>
 
-          {/* Channel grid */}
-          <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10' : 'flex flex-col gap-2 mb-10'}>
-            {filtered.map((ch, i) => {
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.1)', borderTopColor: 'var(--color-gold)' }} />
+            </div>
+          ) : (
+            <>
+              {/* Channel grid */}
+              <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10' : 'flex flex-col gap-2 mb-10'}>
+                {filtered.map((ch, i) => {
               const prog = currentProg(ch.id)
               const isHBO = ch.id === 'hbo'
               return (
@@ -171,32 +193,36 @@ export function TVGuide() {
           </div>
 
           {/* Coming up */}
-          <div className="mb-6">
-            <h2 className="text-base font-bold text-white mb-5">{t.tvGuide.comingUp}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {UPCOMING.map((item, i) => (
-                <div key={item.id} className={`rounded-xl overflow-hidden relative cursor-pointer group ${i === 0 ? 'md:col-span-1 md:row-span-1' : ''}`} style={{ aspectRatio: i === 0 ? '4/3' : '16/9', background: item.gradient }}>
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }} />
-                  <div className="absolute top-3 left-3">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: item.badgeColor, color: '#fff' }}>{item.badge}</span>
-                  </div>
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <p className="text-sm font-bold text-white">{item.title}</p>
-                    {item.desc && <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>{item.desc}</p>}
-                  </div>
-                  {i > 0 && (
-                    <div className="absolute bottom-3 right-3 flex gap-1.5">
-                      <button className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
-                        <svg width="8" height="8" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21" /></svg>
-                      </button>
+          {dynamicUpcoming.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-base font-bold text-white mb-5">{t.tvGuide.comingUp}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {dynamicUpcoming.map((item, i) => (
+                  <div key={item.id} onClick={() => navigate(`/watch-tv/${item.channelId}`)} className={`rounded-xl overflow-hidden relative cursor-pointer group ${i === 0 ? 'md:col-span-1 md:row-span-1' : ''}`} style={{ aspectRatio: i === 0 ? '4/3' : '16/9', background: item.gradient }}>
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }} />
+                    <div className="absolute top-3 left-3">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: item.badgeColor, color: '#fff' }}>{item.badge}</span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <p className="text-sm font-bold text-white">{item.title}</p>
+                      {item.desc && <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>{item.desc}</p>}
+                    </div>
+                    {i > 0 && (
+                      <div className="absolute bottom-3 right-3 flex gap-1.5">
+                        <button className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21" /></svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
+          )}
+        </>
+      )}
     </div>
-  )
+  </div>
+</div>
+)
 }

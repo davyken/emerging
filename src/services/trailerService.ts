@@ -17,7 +17,7 @@ export async function getVideosByTmdbId(
     const detail = mediaType === 'movie'
       ? await getMovieDetail(tmdbId)
       : await getShowDetail(tmdbId)
-    const videos = (detail.videos?.results ?? []).filter(v => v.site === 'YouTube')
+    const videos = (detail.videos?.results ?? []).filter((v: any) => v.site === 'YouTube')
     videoCache.set(cacheKey, videos)
     return videos
   } catch {

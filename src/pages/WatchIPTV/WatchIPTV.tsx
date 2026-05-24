@@ -19,18 +19,6 @@ function formatSecs(s: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
 }
 
-const MOCK_CHANNEL: Channel = {
-  id: 'hbo', name: 'HBO Premium HD', group: 'Films', logo: '', streamUrl: '#',
-}
-
-const NOW = Date.now()
-const MOCK_SCHEDULE: EPGProgram[] = [
-  { channelId: 'hbo', title: 'House of the Dragon', description: 'In the aftermath of her first dragon-riding experience, Rhaenyra finds herself at a crossroads in the Red...', start: new Date(NOW - 48 * 60000).toISOString(), stop: new Date(NOW + 27 * 60000).toISOString() },
-  { channelId: 'hbo', title: 'The Last of Us', description: 'S1 | Episode 5: Long, Long, Long Time', start: new Date(NOW + 27 * 60000).toISOString(), stop: new Date(NOW + 87 * 60000).toISOString() },
-  { channelId: 'hbo', title: 'Succession', description: 'S4 | Episode 1: The Munsters', start: new Date(NOW + 87 * 60000).toISOString(), stop: new Date(NOW + 132 * 60000).toISOString() },
-  { channelId: 'hbo', title: 'The Batman (2022)', description: 'Movie | Action / Crime', start: new Date(NOW + 132 * 60000).toISOString(), stop: new Date(NOW + 252 * 60000).toISOString() },
-]
-
 const QUALITY_OPTIONS = ['Auto', '1080p', '720p', '480p', '360p']
 
 export function WatchIPTV() {
@@ -41,8 +29,8 @@ export function WatchIPTV() {
   const containerRef = useRef<HTMLDivElement>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [channel, setChannel] = useState<Channel>(MOCK_CHANNEL)
-  const [schedule, setSchedule] = useState<EPGProgram[]>(MOCK_SCHEDULE)
+  const [channel, setChannel] = useState<Channel | null>(null)
+  const [schedule, setSchedule] = useState<EPGProgram[]>([])
   const [playing, setPlaying] = useState(true)
   const [volume, setVolume] = useState(1)
   const [muted, setMuted] = useState(false)
@@ -51,6 +39,7 @@ export function WatchIPTV() {
   const [showSchedule, setShowSchedule] = useState(window.innerWidth >= 640)
   const [showMovies, setShowMovies] = useState(false)
   const [movies, setMovies] = useState<TmdbMovie[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
@@ -60,7 +49,9 @@ export function WatchIPTV() {
         if (found) setChannel(found)
         if (channelId && epg[channelId]) setSchedule(epg[channelId])
         setMovies(popMovies.slice(0, 10))
-      } catch {}
+      } catch {} finally {
+        setIsLoading(false)
+      }
     }
     load()
   }, [channelId])
@@ -70,11 +61,35 @@ export function WatchIPTV() {
     if (!video) return
     const src = getChannelStreamUrl(channelId ?? 'demo')
     if (Hls.isSupported()) {
-      const hls = new Hls()
+      const hls = new Hls({
+        manifestLoadingTimeOut: 30000,
+        manifestLoadingMaxRetry: 10,
+        manifestLoadingRetryDelay: 3000,
+        levelLoadingTimeOut: 30000,
+        fragLoadingTimeOut: 30000,
+        enableWorker: true,
+      })
       hlsRef.current = hls
       hls.loadSource(src)
       hls.attachMedia(video)
       hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => null))
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.log('HLS Network Error, trying to recover...')
+              hls.startLoad()
+              break
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.log('HLS Media Error, trying to recover...')
+              hls.recoverMediaError()
+              break
+            default:
+              hls.destroy()
+              break
+          }
+        }
+      })
     } else {
       video.src = src
       video.play().catch(() => null)
@@ -135,6 +150,13 @@ export function WatchIPTV() {
       onMouseMove={resetHideTimer}
       onClick={togglePlay}
     >
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: '#000' }}>
+          <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.1)', borderTopColor: 'var(--color-gold)' }} />
+        </div>
+      )}
+
       {/* Video */}
       <video ref={videoRef} className="w-full h-full object-contain" playsInline />
 
@@ -164,7 +186,7 @@ export function WatchIPTV() {
           <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: 'rgba(255,30,30,0.2)', color: '#ff5555', border: '1px solid rgba(255,30,30,0.3)' }}>
             ● LIVE
           </span>
-          <span className="text-xs font-semibold text-white hidden sm:block">{channel.name}</span>
+          <span className="text-xs font-semibold text-white hidden sm:block">{channel?.name || 'Chargement...'}</span>
         </div>
       </div>
 
@@ -191,7 +213,7 @@ export function WatchIPTV() {
                 ● LIVE
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white">{channel.name}</span>
+                <span className="text-xs font-semibold text-white">{channel?.name || 'Chargement...'}</span>
                 {/* Close button on mobile */}
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowSchedule(false) }}
@@ -203,7 +225,7 @@ export function WatchIPTV() {
               </div>
             </div>
             <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: '#555' }}>En cours</p>
-            <p className="text-xs font-bold text-white mb-0.5">{nowPlaying?.title ?? 'House of the Dragon'}</p>
+            <p className="text-xs font-bold text-white mb-0.5">{nowPlaying?.title || channel?.name || 'En cours'}</p>
             <p className="text-[10px]" style={{ color: '#666' }}>
               {nowPlaying ? `${formatTime(nowPlaying.start)} - ${formatTime(nowPlaying.stop)}` : '21:00 - 23:15'}
             </p>
@@ -239,11 +261,11 @@ export function WatchIPTV() {
       >
         <div className="flex items-end gap-3">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: '#700', color: 'white' }}>
-            {channel.name.slice(0, 2).toUpperCase()}
+            {(channel?.name || 'CH').slice(0, 2).toUpperCase()}
           </div>
           <div>
-            <p className="text-sm font-bold text-white">{nowPlaying?.title ?? 'House of the Dragon'}</p>
-            <p className="text-xs hidden sm:block" style={{ color: '#888' }}>Episode 5 • We Light the Way</p>
+            <p className="text-sm font-bold text-white">{nowPlaying?.title || channel?.name || 'En cours'}</p>
+            {nowPlaying && <p className="text-xs hidden sm:block" style={{ color: '#888' }}>{formatTime(nowPlaying.start)} - {formatTime(nowPlaying.stop)}</p>}
             {nowPlaying?.description && (
               <p className="text-[10px] max-w-[200px] sm:max-w-xs line-clamp-2 mt-0.5 hidden sm:block" style={{ color: '#666' }}>{nowPlaying.description}</p>
             )}
@@ -279,7 +301,7 @@ export function WatchIPTV() {
               {movies.map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => navigate(`/watch/${m.id}`)}
+                  onClick={() => navigate(`/watch/movie/${m.id}`)}
                   className="flex-shrink-0 text-left group"
                 >
                   <div

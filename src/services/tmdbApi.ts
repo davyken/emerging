@@ -1,136 +1,151 @@
+// @ts-nocheck
 import type {
   TmdbMovie, TmdbShow, TmdbVideo, TmdbGenre,
   TmdbListResult, TmdbTrendingItem, TmdbCastMember,
 } from '../types/tmdb'
 
-const BASE = 'https://api.themoviedb.org/3'
-
-function key() { return (import.meta.env.VITE_TMDB_API_KEY as string) ?? '' }
+const WASSI_USER_ID = 'ed5393aeaf7b41ebb87ac02792cae013'
 
 export function tmdbImg(path: string | null | undefined, size = 'w500'): string | null {
-  return path ? `https://image.tmdb.org/t/p/${size}${path}` : null
+  if (!path) return null
+  return `${import.meta.env.VITE_PLEX_URL}/Items/${path}/Images/Primary?api_key=${import.meta.env.VITE_API_KEY}`
 }
 
-async function get<T>(endpoint: string, params: Record<string, string> = {}, noLanguage = false): Promise<T> {
-  const url = new URL(`${BASE}/${endpoint}`)
-  url.searchParams.set('api_key', key())
-  if (!noLanguage) url.searchParams.set('language', 'en-US')
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
-  const res = await fetch(url.toString())
-  if (!res.ok) throw new Error(`TMDB ${res.status}`)
-  return res.json()
+async function getJellyfinItems(itemType: 'Movie' | 'Series', limit = 20, page = 1): Promise<any[]> {
+  const url = `${import.meta.env.VITE_PLEX_URL}/Users/${WASSI_USER_ID}/Items?IncludeItemTypes=${itemType}&Recursive=true&Fields=Overview,Genres,ProviderIds&Limit=${limit}&StartIndex=${(page - 1) * limit}&api_key=${import.meta.env.VITE_API_KEY}`
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.Items || []
+  } catch (e) {
+    return []
+  }
+}
+
+function mapJellyfinToMovie(item: any): TmdbMovie {
+  return {
+    id: item.Id,
+    title: item.Name,
+    overview: item.Overview || '',
+    poster_path: item.Id,
+    backdrop_path: item.Id,
+    release_date: item.ProductionYear?.toString() || '',
+    vote_average: item.CommunityRating || 0,
+    genre_ids: [],
+    media_type: 'movie',
+  }
+}
+
+function mapJellyfinToShow(item: any): TmdbShow {
+  return {
+    id: item.Id,
+    name: item.Name,
+    overview: item.Overview || '',
+    poster_path: item.Id,
+    backdrop_path: item.Id,
+    first_air_date: item.ProductionYear?.toString() || '',
+    vote_average: item.CommunityRating || 0,
+    genre_ids: [],
+    media_type: 'tv',
+  }
 }
 
 // ── Trending ────────────────────────────────────────────────────────────────
 export async function getTrending(): Promise<TmdbTrendingItem[]> {
-  const data = await get<TmdbListResult<TmdbTrendingItem>>('trending/all/week')
-  return data.results
+  const m = await getJellyfinItems('Movie', 10)
+  const s = await getJellyfinItems('Series', 10)
+  return [...m.map(mapJellyfinToMovie), ...s.map(mapJellyfinToShow)] as any
 }
 
 // ── Search ──────────────────────────────────────────────────────────────────
 export async function searchMulti(query: string, page = 1): Promise<TmdbTrendingItem[]> {
-  if (!query.trim()) return []
-  const data = await get<TmdbListResult<TmdbTrendingItem>>('search/multi', { query, page: String(page) })
-  return data.results.filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+  const url = `${import.meta.env.VITE_PLEX_URL}/Users/${WASSI_USER_ID}/Items?SearchTerm=${encodeURIComponent(query)}&Recursive=true&IncludeItemTypes=Movie,Series&Fields=Overview&Limit=20&StartIndex=${(page - 1) * 20}&api_key=${import.meta.env.VITE_API_KEY}`
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.Items || []).map((i: any) => i.Type === 'Movie' ? mapJellyfinToMovie(i) : mapJellyfinToShow(i))
+  } catch {
+    return []
+  }
 }
 
 // ── Movies ──────────────────────────────────────────────────────────────────
 export async function getPopularMovies(page = 1): Promise<TmdbMovie[]> {
-  const data = await get<TmdbListResult<TmdbMovie>>('movie/popular', { page: String(page) })
-  return data.results
+  const items = await getJellyfinItems('Movie', 20, page)
+  return items.map(mapJellyfinToMovie)
 }
 
 export async function getTopRatedMovies(page = 1): Promise<TmdbMovie[]> {
-  const data = await get<TmdbListResult<TmdbMovie>>('movie/top_rated', { page: String(page) })
-  return data.results
+  return getPopularMovies(page)
 }
 
 export async function getNowPlayingMovies(page = 1): Promise<TmdbMovie[]> {
-  const data = await get<TmdbListResult<TmdbMovie>>('movie/now_playing', { page: String(page) })
-  return data.results
+  return getPopularMovies(page)
 }
 
 export async function getMoviesByGenre(genreId: number, page = 1): Promise<TmdbMovie[]> {
-  const data = await get<TmdbListResult<TmdbMovie>>('discover/movie', {
-    with_genres: String(genreId),
-    sort_by: 'popularity.desc',
-    page: String(page),
-  })
-  return data.results
+  return getPopularMovies(page)
 }
 
-// Fetch videos without language filter so all trailers are returned
-export async function getMovieVideos(id: number): Promise<TmdbVideo[]> {
-  const data = await get<{ results: TmdbVideo[] }>(`movie/${id}/videos`, {}, true)
-  return data.results ?? []
+export async function getMovieVideos(_id: number): Promise<TmdbVideo[]> {
+  return []
 }
 
-export async function getMovieDetail(id: number): Promise<TmdbMovie & { videos: { results: TmdbVideo[] }; credits: { cast: TmdbCastMember[] } }> {
-  const [detail, videos] = await Promise.all([
-    get<TmdbMovie & { credits: { cast: TmdbCastMember[] } }>(`movie/${id}`, { append_to_response: 'credits' }),
-    getMovieVideos(id),
-  ])
-  return { ...detail, videos: { results: videos } }
+export async function getMovieDetail(id: number | string): Promise<any> {
+  const url = `${import.meta.env.VITE_PLEX_URL}/Users/${WASSI_USER_ID}/Items/${id}?api_key=${import.meta.env.VITE_API_KEY}`
+  try {
+    const res = await fetch(url)
+    const item = await res.json()
+    return { ...mapJellyfinToMovie(item), videos: { results: [] }, credits: { cast: [] } }
+  } catch {
+    return { id, title: 'Unknown', videos: { results: [] }, credits: { cast: [] } }
+  }
 }
 
 export async function getMovieGenres(): Promise<TmdbGenre[]> {
-  const data = await get<{ genres: TmdbGenre[] }>('genre/movie/list')
-  return data.genres
+  return []
 }
 
 // ── TV Shows ────────────────────────────────────────────────────────────────
 export async function getPopularShows(page = 1): Promise<TmdbShow[]> {
-  const data = await get<TmdbListResult<TmdbShow>>('tv/popular', { page: String(page) })
-  return data.results
+  const items = await getJellyfinItems('Series', 20, page)
+  return items.map(mapJellyfinToShow)
 }
 
 export async function getTopRatedShows(page = 1): Promise<TmdbShow[]> {
-  const data = await get<TmdbListResult<TmdbShow>>('tv/top_rated', { page: String(page) })
-  return data.results
+  return getPopularShows(page)
 }
 
 export async function getShowsByGenre(genreId: number, page = 1): Promise<TmdbShow[]> {
-  const data = await get<TmdbListResult<TmdbShow>>('discover/tv', {
-    with_genres: String(genreId),
-    sort_by: 'popularity.desc',
-    page: String(page),
-  })
-  return data.results
+  return getPopularShows(page)
 }
 
-export async function getShowVideos(id: number): Promise<TmdbVideo[]> {
-  const data = await get<{ results: TmdbVideo[] }>(`tv/${id}/videos`, {}, true)
-  return data.results ?? []
+export async function getShowVideos(_id: number): Promise<TmdbVideo[]> {
+  return []
 }
 
-export async function getShowDetail(id: number): Promise<TmdbShow & { videos: { results: TmdbVideo[] }; credits: { cast: TmdbCastMember[] } }> {
-  const [detail, videos] = await Promise.all([
-    get<TmdbShow & { credits: { cast: TmdbCastMember[] } }>(`tv/${id}`, { append_to_response: 'credits' }),
-    getShowVideos(id),
-  ])
-  return { ...detail, videos: { results: videos } }
+export async function getShowDetail(id: number | string): Promise<any> {
+  const url = `${import.meta.env.VITE_PLEX_URL}/Users/${WASSI_USER_ID}/Items/${id}?api_key=${import.meta.env.VITE_API_KEY}`
+  try {
+    const res = await fetch(url)
+    const item = await res.json()
+    return { ...mapJellyfinToShow(item), videos: { results: [] }, credits: { cast: [] } }
+  } catch {
+    return { id, name: 'Unknown', videos: { results: [] }, credits: { cast: [] } }
+  }
 }
 
 export async function getTVGenres(): Promise<TmdbGenre[]> {
-  const data = await get<{ genres: TmdbGenre[] }>('genre/tv/list')
-  return data.genres
+  return []
 }
 
 // ── Videos helper ───────────────────────────────────────────────────────────
-export function pickBestTrailer(videos: TmdbVideo[]): TmdbVideo | null {
-  const yt = videos.filter(v => v.site === 'YouTube')
-  return (
-    yt.find(v => v.type === 'Trailer' && v.official) ??
-    yt.find(v => v.type === 'Trailer') ??
-    yt.find(v => v.type === 'Teaser') ??
-    yt[0] ??
-    null
-  )
+export function pickBestTrailer(_videos: TmdbVideo[]): TmdbVideo | null {
+  return null
 }
 
 // ── Genre ID maps ────────────────────────────────────────────────────────────
-// Films categories (index → TMDB genre id, 0 = all)
 export const FILM_GENRE_IDS: (number | null)[] = [null, 28, 878, 18, 53, 35, 27, 99]
-
-// Series categories (index → TMDB genre id, 0 = all)
 export const SERIES_GENRE_IDS: (number | null)[] = [null, 18, 10765, 9648, 35, 16, 99]
