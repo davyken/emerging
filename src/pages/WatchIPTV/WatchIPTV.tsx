@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Hls from 'hls.js'
-import { getChannels, getEPG, getChannelStreamUrl } from '../../services/xg2gApi'
+import { getChannels, getEPG, openChannelStream } from '../../services/xg2gApi'
 import type { Channel, EPGProgram } from '../../types/xg2g'
 import { getPopularMovies, tmdbImg } from '../../services/tmdbApi'
 import type { TmdbMovie } from '../../types/tmdb'
@@ -40,6 +40,9 @@ export function WatchIPTV() {
   const [showMovies, setShowMovies] = useState(false)
   const [movies, setMovies] = useState<TmdbMovie[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [streamError, setStreamError] = useState(false)
+  const [streamLoading, setStreamLoading] = useState(true)
+  const retryCountRef = useRef(0)
 
   useEffect(() => {
     async function load() {
@@ -56,45 +59,116 @@ export function WatchIPTV() {
     load()
   }, [channelId])
 
-  useEffect(() => {
+  const startStream = async (id: string) => {
     const video = videoRef.current
     if (!video) return
-    const src = getChannelStreamUrl(channelId ?? 'demo')
+    setStreamError(false)
+    setStreamLoading(true)
+    retryCountRef.current = 0
+
+    const src = await openChannelStream(id)
+
+    // ── Preflight: quick HEAD check before handing to HLS.js ─────────────────
+    // This catches redirect-to-expired / server errors in ~5 s instead of
+    // waiting through HLS.js's full retry cycle (formerly up to 20+ minutes).
+    try {
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 7000)
+      const probe = await fetch(src, { method: 'HEAD', signal: ctrl.signal })
+      clearTimeout(t)
+      const ct = probe.headers.get('content-type') || ''
+      // If the server redirects to an mp4 (e.g. Expired.mp4) or returns a
+      // non-HLS content-type, bail out immediately with an error.
+      if (!probe.ok || (ct && !ct.includes('mpegurl') && !ct.includes('octet-stream') && ct.includes('mp4'))) {
+        setStreamError(true)
+        setStreamLoading(false)
+        return
+      }
+    } catch {
+      // AbortError (timeout) or network failure — let HLS.js try anyway;
+      // it will surface its own error quickly with the tight timeouts below.
+    }
+
     if (Hls.isSupported()) {
+      hlsRef.current?.destroy()
       const hls = new Hls({
-        manifestLoadingTimeOut: 30000,
-        manifestLoadingMaxRetry: 10,
-        manifestLoadingRetryDelay: 3000,
-        levelLoadingTimeOut: 30000,
-        fragLoadingTimeOut: 30000,
+        // Manifest loading — tight timeout for fast failure
+        manifestLoadingTimeOut: 8000,
+        manifestLoadingMaxRetry: 1,
+        manifestLoadingRetryDelay: 1000,
+        // Level (media playlist) loading
+        levelLoadingTimeOut: 8000,
+        levelLoadingMaxRetry: 2,
+        levelLoadingRetryDelay: 1500,
+        // Fragment loading
+        fragLoadingTimeOut: 12000,
+        fragLoadingMaxRetry: 2,
+        // Live stream settings
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 10,
         enableWorker: true,
+        lowLatencyMode: false,
       })
       hlsRef.current = hls
       hls.loadSource(src)
       hls.attachMedia(video)
-      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => null))
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setStreamLoading(false)
+        video.play().catch(() => null)
+      })
+
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        setStreamLoading(false)
+        setStreamError(false)
+      })
+
       hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              console.log('HLS Network Error, trying to recover...')
-              hls.startLoad()
-              break
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              console.log('HLS Media Error, trying to recover...')
-              hls.recoverMediaError()
-              break
-            default:
-              hls.destroy()
-              break
+        console.error('HLS error:', data.type, data.details, data.fatal)
+        if (!data.fatal) return
+
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          retryCountRef.current += 1
+          if (retryCountRef.current <= 2) {
+            console.log(`HLS network error — retry ${retryCountRef.current}/2`)
+            setTimeout(() => hls.startLoad(), 1500)
+          } else {
+            hls.destroy()
+            setStreamError(true)
+            setStreamLoading(false)
           }
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          hls.recoverMediaError()
+        } else {
+          hls.destroy()
+          setStreamError(true)
+          setStreamLoading(false)
         }
       })
-    } else {
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari native HLS
       video.src = src
+      video.addEventListener('loadedmetadata', () => setStreamLoading(false), { once: true })
+      video.addEventListener('error', () => { setStreamError(true); setStreamLoading(false) }, { once: true })
       video.play().catch(() => null)
+    } else {
+      setStreamError(true)
+      setStreamLoading(false)
     }
-    return () => { hlsRef.current?.destroy(); hlsRef.current = null }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    // startStream est async : on ne peut pas la passer directement à useEffect
+    // On la lance et on ignore le résultat si le composant se démonte entre-temps
+    startStream(channelId ?? 'demo').catch(() => {
+      if (!cancelled) { setStreamError(true); setStreamLoading(false) }
+    })
+    return () => {
+      cancelled = true
+      hlsRef.current?.destroy()
+      hlsRef.current = null
+    }
   }, [channelId])
 
   useEffect(() => {
@@ -150,10 +224,47 @@ export function WatchIPTV() {
       onMouseMove={resetHideTimer}
       onClick={togglePlay}
     >
-      {/* Loading Overlay */}
+      {/* Initial data loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: '#000' }}>
           <div className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.1)', borderTopColor: 'var(--color-gold)' }} />
+        </div>
+      )}
+
+      {/* Stream error overlay */}
+      {!isLoading && streamError && (
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center mb-1" style={{ background: 'rgba(255,50,50,0.15)', border: '1px solid rgba(255,50,50,0.3)' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff5555" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+          </div>
+          <p className="text-white font-semibold text-sm">{channel?.name || 'Chaîne'} indisponible</p>
+          <p className="text-xs text-center max-w-xs" style={{ color: '#666' }}>
+            Le flux est inaccessible. Vérifiez que votre abonnement Xtream est actif et que la chaîne est disponible.
+          </p>
+          <button
+            onClick={() => { startStream(channelId ?? 'demo') }}
+            className="mt-2 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-black transition-opacity hover:opacity-80"
+            style={{ background: 'var(--color-gold)' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-3.51" /></svg>
+            Réessayer
+          </button>
+          <button
+            onClick={() => navigate('/direct')}
+            className="text-xs underline" style={{ color: '#555' }}
+          >
+            Retour au guide TV
+          </button>
+        </div>
+      )}
+
+      {/* Stream buffering spinner (only shown while HLS is loading, after initial load) */}
+      {!isLoading && !streamError && streamLoading && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 pointer-events-none">
+          <div className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.15)', borderTopColor: 'var(--color-gold)', borderWidth: '3px' }} />
+          <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            Démarrage du flux…
+          </p>
         </div>
       )}
 

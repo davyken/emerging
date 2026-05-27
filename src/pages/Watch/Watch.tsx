@@ -26,6 +26,7 @@ export function Watch() {
 
   // Data
   const [title, setTitle] = useState('')
+  const [containerExt, setContainerExt] = useState('mp4')
   const [loading, setLoading] = useState(true)
 
   // Playback state
@@ -47,14 +48,24 @@ export function Watch() {
     const fetch = mediaType === 'movie' ? getMovieDetail(tmdbId) : getShowDetail(tmdbId)
     fetch.then(d => {
       setTitle('title' in d ? d.title : d.name)
+      // Pick up container extension returned by Xtream (e.g. 'mkv', 'mp4')
+      if (d.container_extension) setContainerExt(d.container_extension)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [tmdbId, mediaType])
 
   // ── 2. Stream Source ──────────────────────────────────────────────────────
+  // Previously (Jellyfin):
+  //   `${VITE_PLEX_URL}/Videos/${tmdbId}/stream.mp4?api_key=${VITE_API_KEY}&Static=true`
+  // Now uses Xtream Codes VOD/Series stream URL.
+  // containerExt is resolved from getMovieDetail / getShowDetail (defaults to 'mp4').
   const streamSrc = useMemo(() => {
     if (!tmdbId) return null
-    return `${import.meta.env.VITE_PLEX_URL}/Videos/${tmdbId}/stream.mp4?api_key=${import.meta.env.VITE_API_KEY}&Static=true`
-  }, [tmdbId])
+    const host = import.meta.env.VITE_XTREAM_HOST
+    const user = import.meta.env.VITE_XTREAM_USERNAME
+    const pass = import.meta.env.VITE_XTREAM_PASSWORD
+    const type = mediaType === 'tv' ? 'series' : 'movie'
+    return `${host}/${type}/${user}/${pass}/${tmdbId}.${containerExt}`
+  }, [tmdbId, mediaType, containerExt])
 
   // ── 3. Video events ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -125,14 +136,6 @@ export function Watch() {
     setShowSettings(false); setSettingsView('root')
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center w-screen h-screen" style={{ background: '#000' }}>
-        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-gold)', borderTopColor: 'transparent' }} />
-      </div>
-    )
-  }
-
   return (
     <div
       ref={containerRef}
@@ -142,7 +145,15 @@ export function Watch() {
       onTouchStart={resetHideTimer}
       onClick={togglePlay}
     >
+      {/* Video — always in the DOM so videoRef is available on mount */}
       <video ref={videoRef} className="w-full h-full object-contain" playsInline />
+
+      {/* Loading overlay (ne remplace plus la vidéo, s'affiche par-dessus) */}
+      {loading && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: '#000' }}>
+          <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-gold)', borderTopColor: 'transparent' }} />
+        </div>
+      )}
 
       {/* Top bar */}
       <div
