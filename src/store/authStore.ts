@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { UserData } from '../services/authApi'
 
 interface AuthState {
   token: string | null
-  serverUrl: string | null
-  username: string | null
-  setAuth: (token: string, serverUrl: string, username: string) => void
+  user: UserData | null
+  setAuth: (token: string, user: UserData) => void
+  updateUser: (user: UserData) => void
   logout: () => void
 }
 
@@ -13,10 +14,10 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       token: null,
-      serverUrl: null,
-      username: null,
-      setAuth: (token, serverUrl, username) => set({ token, serverUrl, username }),
-      logout: () => set({ token: null, serverUrl: null, username: null }),
+      user: null,
+      setAuth: (token, user) => set({ token, user }),
+      updateUser: (user) => set({ user }),
+      logout: () => set({ token: null, user: null }),
     }),
     { name: 'emerging-auth' }
   )

@@ -5,6 +5,7 @@ import {
   getPopularShows, getTopRatedShows, getShowsByGenre,
   SERIES_GENRE_IDS, tmdbImg,
 } from '../../services/tmdbApi'
+import { SkeletonBanner, SkeletonGrid } from '../../components/Skeleton/Skeleton'
 import type { TmdbShow } from '../../types/tmdb'
 
 // Module-level label refs updated from the hook on each render
@@ -100,7 +101,8 @@ export function Series() {
       </div>
 
       {/* Featured banner */}
-      {featured && (
+      {loading && <SkeletonBanner />}
+      {!loading && featured && (
         <div className="relative rounded-2xl overflow-hidden mb-8" style={{ height: '200px' }}>
           {backdrop
             ? <img src={backdrop} alt={featured.name} className="absolute inset-0 w-full h-full object-cover" />
@@ -141,15 +143,12 @@ export function Series() {
       )}
 
       {/* Grid */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-gold)', borderTopColor: 'transparent' }} />
-        </div>
-      ) : (
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
-          {shows.map(s => <ShowCard key={s.id} show={s} />)}
-        </div>
-      )}
+      {loading
+        ? <SkeletonGrid />
+        : <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+            {shows.map(s => <ShowCard key={s.id} show={s} />)}
+          </div>
+      }
     </div>
   )
 }

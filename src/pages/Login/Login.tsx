@@ -1,21 +1,37 @@
 import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../i18n/LanguageContext'
+import { authApi } from '../../services/authApi'
+import { useAuthStore } from '../../store/authStore'
 
 export function Login() {
   const navigate = useNavigate()
   const { t } = useLanguage()
+  const setAuth = useAuthStore((s) => s.setAuth)
 
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [remember, setRemember] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    setError(null)
     setLoading(true)
-    setTimeout(() => navigate('/accueil'), 600)
+    try {
+      const { data } = await authApi.login(identifier, password)
+      setAuth(data.token, data.user)
+      navigate('/accueil')
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Login failed. Please try again.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -161,6 +177,8 @@ export function Login() {
               {t.login.rememberMe}
             </span>
           </label>
+
+          {error && <p className="text-red-400 text-xs text-center">{error}</p>}
 
           {/* Submit */}
           <button type="submit" disabled={loading} className="auth-btn mt-1">

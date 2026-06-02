@@ -15,6 +15,7 @@ import { TVGuide } from './pages/TVGuide/TVGuide'
 import { MaListe } from './pages/MaListe/MaListe'
 import { MovieDetail } from './pages/MovieDetail/MovieDetail'
 import { Dashboard } from './pages/Dashboard/Dashboard'
+import { Profile } from './pages/Profile/Profile'
 
 // Full-screen players (no sidebar)
 import { Watch } from './pages/Watch/Watch'
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/history" element={<Dashboard />} />
           <Route path="/support" element={<Accueil />} />
           <Route path="/media/:type/:tmdbId" element={<MovieDetail />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
 
         {/* Catch-all */}

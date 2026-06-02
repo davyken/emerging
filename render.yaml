@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: emerging-stream
+    env: node
+    buildCommand: npm install && npm run build && npm install --prefix backend
+    startCommand: NODE_ENV=production node backend/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: VITE_XTREAM_HOST
+        sync: false
+      - key: VITE_XTREAM_USERNAME
+        sync: false
+      - key: VITE_XTREAM_PASSWORD
+        sync: false
+      - key: VITE_TMDB_API_KEY
+        sync: false

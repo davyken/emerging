@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../i18n/LanguageContext'
 import {
-  getTrending, getPopularMovies, getPopularShows, getTopRatedMovies, tmdbImg,
+  getTrending, getPopularMovies, getPopularShows, getTopRatedMovies,
+  getTrailerKey, tmdbImg,
 } from '../../services/tmdbApi'
+import { useMediaStore } from '../../store/mediaStore'
+import { SkeletonHero, SkeletonSection } from '../../components/Skeleton/Skeleton'
 import type { TmdbMovie, TmdbShow, TmdbTrendingItem } from '../../types/tmdb'
+
+const HERO_DURATION = 5000 // ms per slide
+const HERO_COUNT = 8       // max trending items to cycle
 
 function mediaType(item: TmdbTrendingItem): 'movie' | 'tv' {
   return item.media_type
@@ -54,67 +60,198 @@ export function Accueil() {
   const navigate = useNavigate()
   const { t } = useLanguage()
 
-  const [hero, setHero] = useState<TmdbTrendingItem | null>(null)
-  const [trending, setTrending] = useState<TmdbTrendingItem[]>([])
-  const [popularMovies, setPopularMovies] = useState<TmdbMovie[]>([])
-  const [popularShows, setPopularShows] = useState<TmdbShow[]>([])
-  const [topRated, setTopRated] = useState<TmdbMovie[]>([])
-  const [loading, setLoading] = useState(true)
+  const { trending, popularMovies, popularShows, topRated, loaded, setMedia } = useMediaStore()
+  const [loading, setLoading] = useState(!loaded)
 
+  // ── Hero rotation ────────────────────────────────────────────────────────────
+  const heroes = trending.slice(0, HERO_COUNT)
+  const [heroIdx, setHeroIdx] = useState(0)
+  const [fading, setFading] = useState(false)
+  const [trailerKey, setTrailerKey] = useState<string | null>(null)
+  const [showTrailer, setShowTrailer] = useState(false)
+  const rotateTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const progressRef = useRef<HTMLDivElement>(null)
+
+  // Fetch initial data
   useEffect(() => {
+    if (loaded) return
     Promise.all([
       getTrending(),
       getPopularMovies(),
       getPopularShows(),
       getTopRatedMovies(),
     ]).then(([trendItems, movies, shows, top]) => {
-      setTrending(trendItems)
-      setHero(trendItems[0] ?? null)
-      setPopularMovies(movies.slice(0, 10))
-      setPopularShows(shows.slice(0, 10))
-      setTopRated(top.slice(0, 10))
+      setMedia({
+        trending: trendItems,
+        popularMovies: movies.slice(0, 10),
+        popularShows: shows.slice(0, 10),
+        topRated: top.slice(0, 10),
+      })
     }).catch(() => {}).finally(() => setLoading(false))
-  }, [])
+  }, [loaded])
 
+  // Auto-rotate hero with crossfade
+  function goTo(idx: number) {
+    if (rotateTimer.current) clearTimeout(rotateTimer.current)
+    setFading(true)
+    setShowTrailer(false)
+    setTimeout(() => {
+      setHeroIdx(idx)
+      setFading(false)
+    }, 400)
+  }
+
+  useEffect(() => {
+    if (loading || heroes.length === 0) return
+    rotateTimer.current = setTimeout(() => {
+      goTo((heroIdx + 1) % heroes.length)
+    }, HERO_DURATION)
+    return () => { if (rotateTimer.current) clearTimeout(rotateTimer.current) }
+  }, [heroIdx, loading, heroes.length])
+
+  // Fetch trailer whenever hero changes
+  useEffect(() => {
+    if (heroes.length === 0) return
+    const hero = heroes[heroIdx]
+    if (!hero) return
+    setTrailerKey(null)
+    setShowTrailer(false)
+    const title = mediaTitle(hero)
+    const type = mediaType(hero)
+    getTrailerKey(title, type).then(key => {
+      setTrailerKey(key)
+      if (key) setTimeout(() => setShowTrailer(true), 800)
+    })
+  }, [heroIdx, heroes.length])
+
+  // Animate progress bar
+  useEffect(() => {
+    const bar = progressRef.current
+    if (!bar || loading) return
+    bar.style.transition = 'none'
+    bar.style.width = '0%'
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        bar.style.transition = `width ${HERO_DURATION}ms linear`
+        bar.style.width = '100%'
+      })
+    })
+  }, [heroIdx, loading])
+
+  const hero = heroes[heroIdx] ?? null
   const heroBackdrop = hero ? tmdbImg(hero.backdrop_path, 'w1280') : null
   const heroTitle = hero ? mediaTitle(hero) : ''
-  const heroOverview = hero
-    ? (hero.overview?.slice(0, 180) + (hero.overview?.length > 180 ? '...' : ''))
-    : ''
+  const heroOverview = hero ? hero.overview?.slice(0, 160) + (hero.overview?.length > 160 ? '…' : '') : ''
   const heroYear = hero ? mediaDate(hero)?.slice(0, 4) : ''
   const heroMediaType = hero ? mediaType(hero) : 'movie'
+
+  if (loading) {
+    return (
+      <div className="min-h-full" style={{ background: '#0a0a0a' }}>
+        <SkeletonHero />
+        <SkeletonSection />
+        <SkeletonSection />
+        <SkeletonSection />
+        <SkeletonSection />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-full" style={{ background: '#0a0a0a' }}>
 
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden" style={{ height: '52vh', minHeight: '340px' }}>
-        {heroBackdrop
-          ? <img src={heroBackdrop} alt={heroTitle} className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: 'center top' }} />
-          : <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 130% 80% at 65% 0%, #2a1500 0%, #8b4500 18%, #c46a00 28%, #6b3500 42%, #1a0800 60%, #0a0a0a 80%)' }} />
-        }
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(10,10,10,0.93) 30%, rgba(10,10,10,0.55) 65%, rgba(10,10,10,0.15) 100%)' }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(10,10,10,1) 0%, rgba(10,10,10,0.5) 35%, transparent 70%)' }} />
+      {/* ── HERO ─────────────────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden" style={{ height: '58vh', minHeight: '380px' }}>
 
-        <div className="relative z-10 h-full flex flex-col justify-end px-4 sm:px-7 pb-6 sm:pb-8">
-          {!loading && hero && (
+        {/* Background: YouTube trailer or backdrop image */}
+        <div
+          className="absolute inset-0"
+          style={{ transition: 'opacity 0.6s', opacity: fading ? 0 : 1 }}
+        >
+          {showTrailer && trailerKey ? (
+            /* YouTube trailer background */
+            <div className="absolute inset-0 overflow-hidden">
+              <iframe
+                key={trailerKey}
+                src={`https://www.youtube-nocookie.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&loop=1&playlist=${trailerKey}&playsinline=1&rel=0&disablekb=1&iv_load_policy=3&modestbranding=1`}
+                allow="autoplay; encrypted-media"
+                className="absolute"
+                style={{
+                  border: 'none',
+                  pointerEvents: 'none',
+                  width: '177.78vh',
+                  height: '56.25vw',
+                  minWidth: '100%',
+                  minHeight: '100%',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                }}
+              />
+            </div>
+          ) : heroBackdrop ? (
+            <img
+              key={heroBackdrop}
+              src={heroBackdrop}
+              alt={heroTitle}
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ objectPosition: 'center top' }}
+            />
+          ) : (
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 130% 80% at 65% 0%, #2a1500 0%, #8b4500 18%, #c46a00 28%, #6b3500 42%, #1a0800 60%, #0a0a0a 80%)' }} />
+          )}
+        </div>
+
+        {/* Gradient overlays */}
+        <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to right, rgba(10,10,10,0.95) 30%, rgba(10,10,10,0.6) 65%, rgba(10,10,10,0.2) 100%)' }} />
+        <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to top, rgba(10,10,10,1) 0%, rgba(10,10,10,0.4) 40%, transparent 70%)' }} />
+
+        {/* Hero content */}
+        <div
+          className="relative z-20 h-full flex flex-col justify-end px-4 sm:px-7 pb-5 sm:pb-7"
+          style={{ transition: 'opacity 0.4s', opacity: fading ? 0 : 1 }}
+        >
+          {hero && (
             <>
-              <div className="inline-flex items-center gap-2 mb-3 flex-wrap">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: '#2a9a2a', color: 'white' }}>{t.accueil.trendingBadge}</span>
-                <span className="text-[10px] font-medium capitalize" style={{ color: 'rgba(255,255,255,0.5)' }}>{heroMediaType === 'tv' ? 'TV Show' : 'Film'}</span>
-                {hero.vote_average > 0 && <span className="text-[10px] font-bold" style={{ color: 'var(--color-gold)' }}>★ {hero.vote_average.toFixed(1)}</span>}
-                {heroYear && <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{heroYear}</span>}
+              {/* Badges */}
+              <div className="inline-flex items-center gap-2 mb-2.5 flex-wrap">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ background: '#2a9a2a', color: 'white' }}>
+                  {t.accueil.trendingBadge}
+                </span>
+                <span className="text-[10px] font-medium capitalize" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  {heroMediaType === 'tv' ? 'TV Show' : 'Film'}
+                </span>
+                {hero.vote_average > 0 && (
+                  <span className="text-[10px] font-bold" style={{ color: 'var(--color-gold)' }}>
+                    ★ {hero.vote_average.toFixed(1)}
+                  </span>
+                )}
+                {heroYear && (
+                  <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{heroYear}</span>
+                )}
+                {showTrailer && trailerKey && (
+                  <span className="flex items-center gap-1 text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
+                    Trailer
+                  </span>
+                )}
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black mb-2 leading-none" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+
+              {/* Title */}
+              <h1 className="text-2xl sm:text-4xl font-black mb-2 leading-tight" style={{ fontFamily: "'DM Sans', sans-serif", textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>
                 {heroTitle.toUpperCase()}
               </h1>
-              <p className="text-sm leading-relaxed mb-5 max-w-sm sm:max-w-md" style={{ color: 'rgba(255,255,255,0.65)', lineHeight: '1.6' }}>
+
+              {/* Overview */}
+              <p className="text-xs sm:text-sm mb-4 max-w-sm sm:max-w-md" style={{ color: 'rgba(255,255,255,0.65)', lineHeight: '1.6', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
                 {heroOverview}
               </p>
-              <div className="flex gap-3">
+
+              {/* Action buttons */}
+              <div className="flex gap-3 mb-5">
                 <button
                   onClick={() => navigate(`/watch/${heroMediaType}/${hero.id}`)}
-                  className="flex items-center gap-2 font-bold px-5 py-2.5 rounded-lg text-sm transition-colors"
+                  className="flex items-center gap-2 font-bold px-5 py-2.5 rounded-lg text-sm transition-all hover:scale-105"
                   style={{ background: 'var(--color-gold)', color: '#000' }}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
@@ -123,21 +260,60 @@ export function Accueil() {
                 <button
                   onClick={() => navigate(`/media/${heroMediaType}/${hero.id}`)}
                   className="flex items-center gap-2 font-semibold px-5 py-2.5 rounded-lg text-sm"
-                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.15)' }}
+                  style={{ background: 'rgba(255,255,255,0.12)', color: 'white', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                   {t.accueil.moreInfo}
                 </button>
               </div>
+
+              {/* Dot indicators + progress bar */}
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  {heroes.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => goTo(i)}
+                      className="rounded-full transition-all"
+                      style={{
+                        width: i === heroIdx ? 20 : 6,
+                        height: 6,
+                        background: i === heroIdx ? 'var(--color-gold)' : 'rgba(255,255,255,0.3)',
+                      }}
+                    />
+                  ))}
+                </div>
+                {/* Thin progress bar */}
+                <div className="flex-1 max-w-[120px] h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.15)' }}>
+                  <div ref={progressRef} className="h-full rounded-full" style={{ width: '0%', background: 'var(--color-gold)' }} />
+                </div>
+              </div>
             </>
           )}
-          {loading && (
-            <div className="w-7 h-7 border-2 border-t-transparent rounded-full animate-spin mb-4" style={{ borderColor: 'var(--color-gold)', borderTopColor: 'transparent' }} />
-          )}
         </div>
+
+        {/* Prev / Next arrows */}
+        {heroes.length > 1 && (
+          <>
+            <button
+              onClick={() => goTo((heroIdx - 1 + heroes.length) % heroes.length)}
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110"
+              style={{ background: 'rgba(0,0,0,0.5)', color: 'white', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+            <button
+              onClick={() => goTo((heroIdx + 1) % heroes.length)}
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110"
+              style={{ background: 'rgba(0,0,0,0.5)', color: 'white', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
+          </>
+        )}
       </div>
 
-      {/* ── TRENDING NOW ─────────────────────────────────────────────────── */}
+      {/* ── TRENDING NOW ───────────────────────────────────────────────────────── */}
       <Section title={t.accueil.trendingNow} linkTo="/films" linkLabel={t.accueil.viewAll}>
         {trending.slice(0, 10).map(item => {
           const isMovie = item.media_type === 'movie'
@@ -146,17 +322,17 @@ export function Accueil() {
         })}
       </Section>
 
-      {/* ── POPULAR MOVIES ───────────────────────────────────────────────── */}
+      {/* ── POPULAR MOVIES ─────────────────────────────────────────────────────── */}
       <Section title="Popular Movies" linkTo="/films" linkLabel={t.accueil.viewAll}>
         {popularMovies.map(m => <PosterCard key={m.id} item={m} />)}
       </Section>
 
-      {/* ── POPULAR SERIES ───────────────────────────────────────────────── */}
+      {/* ── POPULAR SERIES ─────────────────────────────────────────────────────── */}
       <Section title="Popular TV Shows" linkTo="/series" linkLabel={t.accueil.viewAll}>
         {popularShows.map(s => <PosterCard key={s.id} item={s} />)}
       </Section>
 
-      {/* ── TOP RATED ────────────────────────────────────────────────────── */}
+      {/* ── TOP RATED ──────────────────────────────────────────────────────────── */}
       <Section title="Top Rated Movies" linkTo="/films" linkLabel={t.accueil.viewAll}>
         {topRated.map(m => <PosterCard key={m.id} item={m} />)}
       </Section>

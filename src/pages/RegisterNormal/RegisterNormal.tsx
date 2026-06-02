@@ -1,10 +1,14 @@
 import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../i18n/LanguageContext'
+import { authApi } from '../../services/authApi'
+import { useAuthStore } from '../../store/authStore'
 
 export function RegisterNormal() {
   const navigate = useNavigate()
   const { t } = useLanguage()
+  const setAuth = useAuthStore((s) => s.setAuth)
+
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -13,12 +17,23 @@ export function RegisterNormal() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (password !== confirm) { setError(t.registerNormal.passwordMismatch); return }
     setError(null)
     setLoading(true)
-    setTimeout(() => navigate('/accueil'), 600)
+    try {
+      const { data } = await authApi.register(name, email, password)
+      setAuth(data.token, data.user)
+      navigate('/accueil')
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Registration failed. Please try again.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

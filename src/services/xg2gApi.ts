@@ -44,7 +44,7 @@ const XTREAM_API  = `${XTREAM_HOST}/player_api.php?username=${XTREAM_USER}&passw
 // }
 
 /** Timeout wrapper — avoids hanging if the Xtream server is unreachable */
-async function fetchTimeout(url: string, ms = 8000): Promise<Response> {
+async function fetchTimeout(url: string, ms = 12000): Promise<Response> {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), ms)
   try {
@@ -54,22 +54,29 @@ async function fetchTimeout(url: string, ms = 8000): Promise<Response> {
   }
 }
 
+// ── In-memory cache (30 min TTL) ─────────────────────────────────────────────
+const CACHE_TTL = 30 * 60 * 1000
+let channelCache: { data: Channel[]; ts: number } | null = null
+
 // ── Live channels via Xtream Codes ────────────────────────────────────────────
 export async function getChannels(): Promise<Channel[]> {
+  if (channelCache && Date.now() - channelCache.ts < CACHE_TTL) return channelCache.data
   try {
     const res = await fetchTimeout(`${XTREAM_API}&action=get_live_streams`)
-    if (!res.ok) return []
+    if (!res.ok) return channelCache?.data ?? []
     const data = await res.json()
-    if (!Array.isArray(data)) return []
-    return data.map((item: any) => ({
+    if (!Array.isArray(data)) return channelCache?.data ?? []
+    const channels = data.map((item: any) => ({
       id: String(item.stream_id),
       name: item.name,
       group: item.category_id || 'Général',
       streamUrl: getChannelStreamUrl(String(item.stream_id)),
       logo: item.stream_icon || '',
     }))
+    channelCache = { data: channels, ts: Date.now() }
+    return channels
   } catch {
-    return []
+    return channelCache?.data ?? []
   }
 }
 

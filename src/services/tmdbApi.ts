@@ -77,32 +77,37 @@ async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response
   }
 }
 
+// ── In-memory cache (30 min TTL) ─────────────────────────────────────────────
+const CACHE_TTL = 30 * 60 * 1000
+const cache: Record<string, { data: any[]; ts: number }> = {}
+
+async function cachedFetch(url: string): Promise<any[]> {
+  const hit = cache[url]
+  if (hit && Date.now() - hit.ts < CACHE_TTL) return hit.data
+  try {
+    const res = await fetchWithTimeout(url, 15000)
+    if (!res.ok) return hit?.data ?? []
+    const data = await res.json()
+    if (!Array.isArray(data)) return hit?.data ?? []
+    cache[url] = { data, ts: Date.now() }
+    return data
+  } catch {
+    return hit?.data ?? []
+  }
+}
+
 // ── Xtream VOD (movies) ───────────────────────────────────────────────────────
 async function getXtreamVOD(limit = 20, page = 1): Promise<any[]> {
-  try {
-    const res = await fetchWithTimeout(`${XTREAM_API}&action=get_vod_streams`)
-    if (!res.ok) return []
-    const data = await res.json()
-    if (!Array.isArray(data)) return []
-    const start = (page - 1) * limit
-    return data.slice(start, start + limit)
-  } catch {
-    return []
-  }
+  const data = await cachedFetch(`${XTREAM_API}&action=get_vod_streams`)
+  const start = (page - 1) * limit
+  return data.slice(start, start + limit)
 }
 
 // ── Xtream Series (TV shows) ──────────────────────────────────────────────────
 async function getXtreamSeries(limit = 20, page = 1): Promise<any[]> {
-  try {
-    const res = await fetchWithTimeout(`${XTREAM_API}&action=get_series`)
-    if (!res.ok) return []
-    const data = await res.json()
-    if (!Array.isArray(data)) return []
-    const start = (page - 1) * limit
-    return data.slice(start, start + limit)
-  } catch {
-    return []
-  }
+  const data = await cachedFetch(`${XTREAM_API}&action=get_series`)
+  const start = (page - 1) * limit
+  return data.slice(start, start + limit)
 }
 
 function mapXtreamToMovie(item: any): TmdbMovie {
@@ -146,6 +151,42 @@ function mapXtreamToShow(item: any): TmdbShow {
   }
 }
 
+// ── TMDB trailer lookup (by title search) ────────────────────────────────────
+const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY
+const trailerCache = new Map<string, string | null>()
+
+export async function getTrailerKey(title: string, type: 'movie' | 'tv'): Promise<string | null> {
+  if (!TMDB_KEY || !title) return null
+  const cacheKey = `${type}:${title}`
+  if (trailerCache.has(cacheKey)) return trailerCache.get(cacheKey)!
+  try {
+    const endpoint = type === 'movie' ? 'movie' : 'tv'
+    const search = await fetchWithTimeout(
+      `https://api.themoviedb.org/3/search/${endpoint}?api_key=${TMDB_KEY}&query=${encodeURIComponent(title)}&page=1`,
+      6000,
+    )
+    if (!search.ok) { trailerCache.set(cacheKey, null); return null }
+    const { results } = await search.json()
+    const id = results?.[0]?.id
+    if (!id) { trailerCache.set(cacheKey, null); return null }
+    const videos = await fetchWithTimeout(
+      `https://api.themoviedb.org/3/${endpoint}/${id}/videos?api_key=${TMDB_KEY}`,
+      6000,
+    )
+    if (!videos.ok) { trailerCache.set(cacheKey, null); return null }
+    const { results: vids } = await videos.json()
+    const trailer = vids?.find((v: any) =>
+      v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'),
+    )
+    const key = trailer?.key ?? null
+    trailerCache.set(cacheKey, key)
+    return key
+  } catch {
+    trailerCache.set(cacheKey, null)
+    return null
+  }
+}
+
 // ── Trending ──────────────────────────────────────────────────────────────────
 export async function getTrending(): Promise<TmdbTrendingItem[]> {
   const [movies, shows] = await Promise.all([getXtreamVOD(10), getXtreamSeries(10)])
@@ -154,26 +195,16 @@ export async function getTrending(): Promise<TmdbTrendingItem[]> {
 
 // ── Search ────────────────────────────────────────────────────────────────────
 export async function searchMulti(query: string, page = 1): Promise<TmdbTrendingItem[]> {
-  // Previously used Jellyfin /Users/.../Items?SearchTerm=...
-  // Now we fetch all VOD + series and filter client-side
-  try {
-    const [vod, series] = await Promise.all([
-      fetchWithTimeout(`${XTREAM_API}&action=get_vod_streams`).then(r => r.ok ? r.json() : []),
-      fetchWithTimeout(`${XTREAM_API}&action=get_series`).then(r => r.ok ? r.json() : []),
-    ])
-    const q = query.toLowerCase()
-    const movies = (Array.isArray(vod) ? vod : [])
-      .filter((i: any) => i.name?.toLowerCase().includes(q))
-      .map(mapXtreamToMovie)
-    const shows = (Array.isArray(series) ? series : [])
-      .filter((i: any) => i.name?.toLowerCase().includes(q))
-      .map(mapXtreamToShow)
-    const all = [...movies, ...shows]
-    const start = (page - 1) * 20
-    return all.slice(start, start + 20) as any
-  } catch {
-    return []
-  }
+  const [vod, series] = await Promise.all([
+    cachedFetch(`${XTREAM_API}&action=get_vod_streams`),
+    cachedFetch(`${XTREAM_API}&action=get_series`),
+  ])
+  const q = query.toLowerCase()
+  const movies = vod.filter((i: any) => i.name?.toLowerCase().includes(q)).map(mapXtreamToMovie)
+  const shows = series.filter((i: any) => i.name?.toLowerCase().includes(q)).map(mapXtreamToShow)
+  const all = [...movies, ...shows]
+  const start = (page - 1) * 20
+  return all.slice(start, start + 20) as any
 }
 
 // ── Movies ────────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../i18n/LanguageContext'
+import { useAuthStore } from '../../store/authStore'
 
 interface TopNavProps {
   onMenuClick: () => void
@@ -9,6 +10,8 @@ interface TopNavProps {
 export function TopNav({ onMenuClick }: TopNavProps) {
   const { t, lang, toggle } = useLanguage()
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
   const [showProfile, setShowProfile] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
@@ -32,8 +35,19 @@ export function TopNav({ onMenuClick }: TopNavProps) {
 
   function handleLogout() {
     setShowProfile(false)
+    logout()
     navigate('/login')
   }
+
+  function handleAccountSettings() {
+    setShowProfile(false)
+    navigate('/profile')
+  }
+
+  const initials = (user?.name ?? 'U').slice(0, 2).toUpperCase()
+  const memberSince = user?.createdAt
+    ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    : '—'
 
   return (
     <div
@@ -55,7 +69,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         </svg>
       </button>
 
-      {/* Logo — mobile only, displayed after hamburger */}
+      {/* Logo — mobile only */}
       <img
         src="/logo.png"
         alt="Emerging Stream"
@@ -87,7 +101,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
 
       <div className="flex-1" />
 
-      {/* Search — hidden on small mobile */}
+      {/* Search */}
       <div className="relative hidden sm:block">
         <input
           type="text"
@@ -114,7 +128,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         {lang === 'en' ? 'FR' : 'EN'}
       </button>
 
-      {/* Bell — hidden on mobile */}
+      {/* Bell */}
       <button className="hidden sm:block text-gray-500 hover:text-white transition-colors">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -122,27 +136,23 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         </svg>
       </button>
 
-      {/* Settings — hidden on mobile */}
-      <button className="hidden lg:block text-gray-500 hover:text-white transition-colors">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" />
-        </svg>
-      </button>
-
       {/* Avatar + profile dropdown */}
       <div ref={profileRef} className="relative flex-shrink-0">
         <button
           onClick={() => setShowProfile(v => !v)}
-          className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold cursor-pointer transition-all"
+          className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold cursor-pointer transition-all overflow-hidden"
           style={{
-            background: showProfile ? 'var(--color-gold)' : 'var(--color-gold)',
+            background: 'var(--color-gold)',
             color: '#000',
             outline: showProfile ? '2px solid rgba(201,168,76,0.5)' : 'none',
             outlineOffset: '2px',
           }}
         >
-          A
+          {user?.avatar ? (
+            <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" />
+          ) : (
+            initials
+          )}
         </button>
 
         {/* Profile panel */}
@@ -159,12 +169,16 @@ export function TopNav({ onMenuClick }: TopNavProps) {
             {/* Header */}
             <div className="px-4 pt-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-base font-black flex-shrink-0" style={{ background: 'var(--color-gold)', color: '#000' }}>
-                  A
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-base font-black flex-shrink-0 overflow-hidden" style={{ background: 'var(--color-gold)', color: '#000' }}>
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-white leading-tight">Alex Martin</p>
-                  <p className="text-[11px] mt-0.5 truncate" style={{ color: '#666' }}>alex.martin@email.com</p>
+                  <p className="text-sm font-bold text-white leading-tight">{user?.name ?? '—'}</p>
+                  <p className="text-[11px] mt-0.5 truncate" style={{ color: '#666' }}>{user?.email ?? '—'}</p>
                 </div>
               </div>
             </div>
@@ -186,14 +200,14 @@ export function TopNav({ onMenuClick }: TopNavProps) {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2">
                     <polygon points="12,2 15,8.5 22,9.3 17,14 18.2,21 12,17.8 5.8,21 7,14 2,9.3 9,8.5" />
                   </svg>
-                  <span className="text-sm font-bold" style={{ color: 'var(--color-gold)' }}>{t.profile.plan}</span>
+                  <span className="text-sm font-bold" style={{ color: 'var(--color-gold)' }}>{user?.plan?.toUpperCase() ?? 'FREE'} {t.profile.plan}</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
                   <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: '#555' }}>{t.profile.memberSince}</p>
-                  <p className="text-[11px] font-semibold text-white leading-tight">{t.profile.memberSinceValue}</p>
+                  <p className="text-[11px] font-semibold text-white leading-tight">{memberSince}</p>
                 </div>
                 <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
                   <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: '#555' }}>{t.profile.renewal}</p>
@@ -205,7 +219,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
             {/* Actions */}
             <div className="px-2 py-2">
               <button
-                onClick={() => setShowProfile(false)}
+                onClick={handleAccountSettings}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors hover:bg-white/5 text-left"
                 style={{ color: '#888' }}
               >

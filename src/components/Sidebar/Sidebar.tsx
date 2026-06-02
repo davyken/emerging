@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../i18n/LanguageContext'
+import { useAuthStore } from '../../store/authStore'
 
 function Icon({ d, size = 15 }: { d: string; size?: number }) {
   return (
@@ -27,10 +28,12 @@ interface SidebarProps {
 export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onToggleCollapse }: SidebarProps) {
   const navigate = useNavigate()
   const { t } = useLanguage()
+  const logout = useAuthStore((s) => s.logout)
   const currentPath = window.location.pathname
 
   function handleLogout() {
     onCloseMobile()
+    logout()
     navigate('/login')
   }
 
