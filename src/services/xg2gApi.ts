@@ -63,7 +63,7 @@ let channelCache: { data: Channel[]; ts: number } | null = null
 export async function getChannels(): Promise<Channel[]> {
   if (channelCache && Date.now() - channelCache.ts < CACHE_TTL) return channelCache.data
   try {
-    const res = await fetchTimeout(`${XTREAM_API}&action=get_live_streams`)
+    const res = await fetchTimeout(`${XTREAM_API}?action=get_live_streams`)
     if (!res.ok) return channelCache?.data ?? []
     const data = await res.json()
     if (!Array.isArray(data)) return channelCache?.data ?? []
@@ -99,7 +99,7 @@ export async function getEPG(): Promise<EPGData> {
 export async function getChannelEPG(streamId: string, limit = 10): Promise<EPGData> {
   try {
     const res = await fetchTimeout(
-      `${XTREAM_API}&action=get_short_epg&stream_id=${streamId}&limit=${limit}`,
+      `${XTREAM_API}?action=get_short_epg&stream_id=${streamId}&limit=${limit}`,
     )
     if (!res.ok) return {}
     const data = await res.json()

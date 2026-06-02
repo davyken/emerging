@@ -95,14 +95,14 @@ async function cachedFetch(url: string): Promise<any[]> {
 
 // ── Xtream VOD (movies) ───────────────────────────────────────────────────────
 async function getXtreamVOD(limit = 20, page = 1): Promise<any[]> {
-  const data = await cachedFetch(`${XTREAM_API}&action=get_vod_streams`)
+  const data = await cachedFetch(`${XTREAM_API}?action=get_vod_streams`)
   const start = (page - 1) * limit
   return data.slice(start, start + limit)
 }
 
 // ── Xtream Series (TV shows) ──────────────────────────────────────────────────
 async function getXtreamSeries(limit = 20, page = 1): Promise<any[]> {
-  const data = await cachedFetch(`${XTREAM_API}&action=get_series`)
+  const data = await cachedFetch(`${XTREAM_API}?action=get_series`)
   const start = (page - 1) * limit
   return data.slice(start, start + limit)
 }
@@ -228,8 +228,8 @@ export async function getTrending(): Promise<TmdbTrendingItem[]> {
 // ── Search ────────────────────────────────────────────────────────────────────
 export async function searchMulti(query: string, page = 1): Promise<TmdbTrendingItem[]> {
   const [vod, series] = await Promise.all([
-    cachedFetch(`${XTREAM_API}&action=get_vod_streams`),
-    cachedFetch(`${XTREAM_API}&action=get_series`),
+    cachedFetch(`${XTREAM_API}?action=get_vod_streams`),
+    cachedFetch(`${XTREAM_API}?action=get_series`),
   ])
   const q = query.toLowerCase()
   const movies = vod.filter((i: any) => i.name?.toLowerCase().includes(q)).map(mapXtreamToMovie)
@@ -264,7 +264,7 @@ export async function getMovieVideos(_id: number): Promise<TmdbVideo[]> {
 export async function getMovieDetail(id: number | string): Promise<any> {
   // Previously: `${VITE_PLEX_URL}/Users/${WASSI_USER_ID}/Items/${id}?api_key=${VITE_API_KEY}`
   try {
-    const res = await fetchWithTimeout(`${XTREAM_API}&action=get_vod_info&vod_id=${id}`)
+    const res = await fetchWithTimeout(`${XTREAM_API}?action=get_vod_info&vod_id=${id}`)
     if (!res.ok) throw new Error('not ok')
     const data = await res.json()
     const info = data?.info || {}
@@ -314,7 +314,7 @@ export async function getShowVideos(_id: number): Promise<TmdbVideo[]> {
 export async function getShowDetail(id: number | string): Promise<any> {
   // Previously: `${VITE_PLEX_URL}/Users/${WASSI_USER_ID}/Items/${id}?api_key=${VITE_API_KEY}`
   try {
-    const res = await fetchWithTimeout(`${XTREAM_API}&action=get_series_info&series_id=${id}`)
+    const res = await fetchWithTimeout(`${XTREAM_API}?action=get_series_info&series_id=${id}`)
     if (!res.ok) throw new Error('not ok')
     const data = await res.json()
     const info = data?.info || {}
