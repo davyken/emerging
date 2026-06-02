@@ -6,6 +6,7 @@ const cors = require('cors')
 
 const authRoutes = require('./routes/auth')
 const userRoutes = require('./routes/user')
+const xtreamRoutes = require('./routes/xtream')
 
 const app = express()
 const isProd = process.env.NODE_ENV === 'production'
@@ -21,6 +22,7 @@ app.use(express.json({ limit: '2mb' }))
 // API routes
 app.use('/api/auth', authRoutes)
 app.use('/api/user', userRoutes)
+app.use('/api/xtream', xtreamRoutes)
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
 
 if (isProd) {

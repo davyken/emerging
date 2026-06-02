@@ -4,11 +4,8 @@ import type {
   TmdbListResult, TmdbTrendingItem, TmdbCastMember,
 } from '../types/tmdb'
 
-// ── Xtream Codes credentials ──────────────────────────────────────────────────
-const XTREAM_HOST = import.meta.env.VITE_XTREAM_HOST
-const XTREAM_USER = import.meta.env.VITE_XTREAM_USERNAME
-const XTREAM_PASS = import.meta.env.VITE_XTREAM_PASSWORD
-const XTREAM_API  = `${XTREAM_HOST}/player_api.php?username=${XTREAM_USER}&password=${XTREAM_PASS}`
+// ── Xtream API — routed through our backend proxy to avoid mixed-content blocks
+const XTREAM_API = '/api/xtream'
 
 // ── Jellyfin / VITE_PLEX_URL approach (commented out) ────────────────────────
 // const WASSI_USER_ID = import.meta.env.VITE_JELLYFIN_USER_ID || 'ed5393aeaf7b41ebb87ac02792cae013'

@@ -72,7 +72,7 @@ export function Watch() {
   // ── 2. Stream sources ────────────────────────────────────────────────────────
   const streamSrc = useMemo(() => {
     if (!tmdbId) return null
-    const host = import.meta.env.VITE_XTREAM_HOST
+    const host = (import.meta.env.VITE_XTREAM_HOST || '').replace(/^http:\/\//, 'https://')
     const user = import.meta.env.VITE_XTREAM_USERNAME
     const pass = import.meta.env.VITE_XTREAM_PASSWORD
     const seg = mediaType === 'tv' ? 'series' : 'movie'

@@ -1,10 +1,11 @@
 import type { Channel, EPGData } from '../types/xg2g'
 
-// ── Xtream Codes credentials ──────────────────────────────────────────────────
-const XTREAM_HOST = import.meta.env.VITE_XTREAM_HOST
-const XTREAM_USER = import.meta.env.VITE_XTREAM_USERNAME
-const XTREAM_PASS = import.meta.env.VITE_XTREAM_PASSWORD
-const XTREAM_API  = `${XTREAM_HOST}/player_api.php?username=${XTREAM_USER}&password=${XTREAM_PASS}`
+// ── Xtream Codes credentials (needed only for stream URLs, not API calls) ─────
+const XTREAM_HOST = import.meta.env.VITE_XTREAM_HOST || ''
+const XTREAM_USER = import.meta.env.VITE_XTREAM_USERNAME || ''
+const XTREAM_PASS = import.meta.env.VITE_XTREAM_PASSWORD || ''
+// API calls go through the backend proxy (avoids mixed-content on HTTPS)
+const XTREAM_API = '/api/xtream'
 
 // ── Jellyfin / VITE_XG2G_URL approach (commented out) ────────────────────────
 // import axios from 'axios'
@@ -122,7 +123,8 @@ export async function getChannelEPG(streamId: string, limit = 10): Promise<EPGDa
  * Xtream format: http://HOST/live/USERNAME/PASSWORD/STREAM_ID.m3u8
  */
 export function getChannelStreamUrl(streamId: string): string {
-  return `${XTREAM_HOST}/live/${XTREAM_USER}/${XTREAM_PASS}/${streamId}.m3u8`
+  const safeHost = XTREAM_HOST.replace(/^http:\/\//, 'https://')
+  return `${safeHost}/live/${XTREAM_USER}/${XTREAM_PASS}/${streamId}.m3u8`
 }
 
 /**
