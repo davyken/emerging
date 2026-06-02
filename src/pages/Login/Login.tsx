@@ -121,13 +121,13 @@ export function Login() {
               <label className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 {t.login.passwordLabel}
               </label>
-              <button
-                type="button"
+              <Link
+                to="/forgot-password"
                 className="text-xs hover:underline"
                 style={{ color: 'var(--color-gold)' }}
               >
                 {t.login.forgotPassword}
-              </button>
+              </Link>
             </div>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
