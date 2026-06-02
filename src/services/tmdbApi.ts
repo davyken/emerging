@@ -151,40 +151,75 @@ function mapXtreamToShow(item: any): TmdbShow {
   }
 }
 
-// ── TMDB trailer lookup (by title search) ────────────────────────────────────
+// ── TMDB enrichment (trailers + cast + genres by title search) ────────────────
 const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY
+const TMDB_IMG = 'https://image.tmdb.org/t/p'
+
+export function tmdbProfileImg(path: string | null | undefined, size = 'w185'): string | null {
+  if (!path) return null
+  if (path.startsWith('http')) return path
+  return `${TMDB_IMG}/${size}${path}`
+}
+
+export interface TmdbEnrichment {
+  videos: TmdbVideo[]
+  cast: TmdbCastMember[]
+  genres: { id: number; name: string }[]
+}
+
+const enrichmentCache = new Map<string, TmdbEnrichment | null>()
 const trailerCache = new Map<string, string | null>()
+
+async function tmdbSearchId(title: string, type: 'movie' | 'tv'): Promise<number | null> {
+  if (!TMDB_KEY) return null
+  try {
+    const endpoint = type === 'movie' ? 'movie' : 'tv'
+    const res = await fetchWithTimeout(
+      `https://api.themoviedb.org/3/search/${endpoint}?api_key=${TMDB_KEY}&query=${encodeURIComponent(title)}&page=1`,
+      6000,
+    )
+    if (!res.ok) return null
+    const { results } = await res.json()
+    return results?.[0]?.id ?? null
+  } catch { return null }
+}
+
+export async function getTmdbEnrichment(title: string, type: 'movie' | 'tv'): Promise<TmdbEnrichment | null> {
+  if (!TMDB_KEY || !title) return null
+  const cacheKey = `enrich:${type}:${title}`
+  if (enrichmentCache.has(cacheKey)) return enrichmentCache.get(cacheKey)!
+  try {
+    const id = await tmdbSearchId(title, type)
+    if (!id) { enrichmentCache.set(cacheKey, null); return null }
+    const endpoint = type === 'movie' ? 'movie' : 'tv'
+    const res = await fetchWithTimeout(
+      `https://api.themoviedb.org/3/${endpoint}/${id}?api_key=${TMDB_KEY}&append_to_response=videos,credits`,
+      8000,
+    )
+    if (!res.ok) { enrichmentCache.set(cacheKey, null); return null }
+    const data = await res.json()
+    const result: TmdbEnrichment = {
+      videos: (data.videos?.results ?? []).filter((v: any) => v.site === 'YouTube'),
+      cast: data.credits?.cast?.slice(0, 12) ?? [],
+      genres: data.genres ?? [],
+    }
+    enrichmentCache.set(cacheKey, result)
+    return result
+  } catch {
+    enrichmentCache.set(cacheKey, null)
+    return null
+  }
+}
 
 export async function getTrailerKey(title: string, type: 'movie' | 'tv'): Promise<string | null> {
   if (!TMDB_KEY || !title) return null
   const cacheKey = `${type}:${title}`
   if (trailerCache.has(cacheKey)) return trailerCache.get(cacheKey)!
-  try {
-    const endpoint = type === 'movie' ? 'movie' : 'tv'
-    const search = await fetchWithTimeout(
-      `https://api.themoviedb.org/3/search/${endpoint}?api_key=${TMDB_KEY}&query=${encodeURIComponent(title)}&page=1`,
-      6000,
-    )
-    if (!search.ok) { trailerCache.set(cacheKey, null); return null }
-    const { results } = await search.json()
-    const id = results?.[0]?.id
-    if (!id) { trailerCache.set(cacheKey, null); return null }
-    const videos = await fetchWithTimeout(
-      `https://api.themoviedb.org/3/${endpoint}/${id}/videos?api_key=${TMDB_KEY}`,
-      6000,
-    )
-    if (!videos.ok) { trailerCache.set(cacheKey, null); return null }
-    const { results: vids } = await videos.json()
-    const trailer = vids?.find((v: any) =>
-      v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'),
-    )
-    const key = trailer?.key ?? null
-    trailerCache.set(cacheKey, key)
-    return key
-  } catch {
-    trailerCache.set(cacheKey, null)
-    return null
-  }
+  const enrichment = await getTmdbEnrichment(title, type)
+  const trailer = enrichment?.videos?.find(v => v.type === 'Trailer' || v.type === 'Teaser')
+  const key = trailer?.key ?? null
+  trailerCache.set(cacheKey, key)
+  return key
 }
 
 // ── Trending ──────────────────────────────────────────────────────────────────

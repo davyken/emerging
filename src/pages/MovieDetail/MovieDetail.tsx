@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLanguage } from '../../i18n/LanguageContext'
-import { getMovieDetail, getShowDetail, tmdbImg, pickBestTrailer } from '../../services/tmdbApi'
+import {
+  getMovieDetail, getShowDetail, getTmdbEnrichment,
+  tmdbImg, tmdbProfileImg,
+} from '../../services/tmdbApi'
 import { buildYouTubeEmbedUrl } from '../../services/trailerService'
 import type { TmdbMovie, TmdbShow, TmdbVideo, TmdbCastMember } from '../../types/tmdb'
+import type { TmdbEnrichment } from '../../services/tmdbApi'
 
 type Tab = 'trailers' | 'cast' | 'details'
 
@@ -21,7 +25,9 @@ export function MovieDetail() {
   const { t } = useLanguage()
 
   const [detail, setDetail] = useState<Detail | null>(null)
+  const [enrichment, setEnrichment] = useState<TmdbEnrichment | null>(null)
   const [loading, setLoading] = useState(true)
+  const [enrichLoading, setEnrichLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('trailers')
 
   const mediaType = type === 'tv' ? 'tv' : 'movie'
@@ -29,13 +35,21 @@ export function MovieDetail() {
   useEffect(() => {
     if (!tmdbId) return
     setLoading(true)
+    setEnrichLoading(true)
     setDetail(null)
-    const id = Number(tmdbId)
-    const fetch = mediaType === 'movie' ? getMovieDetail(id) : getShowDetail(id)
+    setEnrichment(null)
+
+    const fetch = mediaType === 'movie' ? getMovieDetail(tmdbId) : getShowDetail(tmdbId)
     fetch
-      .then(d => setDetail(d as Detail))
+      .then(d => {
+        setDetail(d as Detail)
+        // Fetch TMDB enrichment using the title
+        const title = 'title' in d ? d.title : d.name
+        return getTmdbEnrichment(title, mediaType)
+      })
+      .then(enrich => setEnrichment(enrich))
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => { setLoading(false); setEnrichLoading(false) })
   }, [tmdbId, mediaType])
 
   if (loading) {
@@ -62,12 +76,12 @@ export function MovieDetail() {
       ? `${(detail as TmdbShow).number_of_seasons} Season${(detail as TmdbShow).number_of_seasons === 1 ? '' : 's'}`
       : null
 
-  const genres   = detail.genres ?? []
-  const poster   = tmdbImg(detail.poster_path, 'w342')
+  // Prefer TMDB enrichment data for genres, videos, cast
+  const genres  = enrichment?.genres.length ? enrichment.genres : (detail.genres ?? [])
+  const videos  = enrichment?.videos ?? []
+  const cast    = enrichment?.cast ?? (detail.credits?.cast?.slice(0, 12) ?? [])
+  const poster  = tmdbImg(detail.poster_path, 'w342')
   const backdrop = tmdbImg(detail.backdrop_path, 'w1280')
-  const cast     = detail.credits?.cast?.slice(0, 6) ?? []
-  const videos   = (detail.videos?.results ?? []).filter(v => v.site === 'YouTube')
-  const bestTrailer = pickBestTrailer(videos)
 
   const TECH_SPECS = [
     { label: t.movieDetail.resolution, value: '4K UHD (2160p)' },
@@ -141,18 +155,16 @@ export function MovieDetail() {
                 style={{ background: 'var(--color-gold)', color: '#000' }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21" /></svg>
-                {bestTrailer ? t.movieDetail.playMovie : 'Watch Trailer'}
+                {t.movieDetail.playMovie}
               </button>
-              {bestTrailer && (
-                <button
-                  onClick={() => setTab('trailers')}
-                  className="flex items-center gap-2 font-semibold px-6 py-2.5 rounded-lg text-sm"
-                  style={{ background: 'rgba(255,255,255,0.08)', color: 'white', border: '1px solid rgba(255,255,255,0.12)' }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5,3 19,12 5,21" /><rect x="1" y="3" width="22" height="18" rx="2" /></svg>
-                  {t.movieDetail.trailers}
-                </button>
-              )}
+              <button
+                onClick={() => setTab('trailers')}
+                className="flex items-center gap-2 font-semibold px-6 py-2.5 rounded-lg text-sm"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'white', border: '1px solid rgba(255,255,255,0.12)' }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5,3 19,12 5,21" /></svg>
+                {t.movieDetail.trailers}
+              </button>
             </div>
           </div>
         </div>
@@ -181,36 +193,17 @@ export function MovieDetail() {
         </div>
 
         {/* ── TRAILERS TAB ── */}
-        {tab === 'trailers' && <TrailersTab videos={videos} title={title} />}
+        {tab === 'trailers' && (
+          enrichLoading
+            ? <TrailersLoading />
+            : <TrailersTab videos={videos} title={title} />
+        )}
 
         {/* ── CAST TAB ── */}
         {tab === 'cast' && (
-          <div className="pb-10">
-            {cast.length === 0
-              ? <p className="text-sm py-8 text-center" style={{ color: '#555' }}>No cast information available.</p>
-              : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-                  {cast.map(member => {
-                    const photo = tmdbImg(member.profile_path, 'w185')
-                    return (
-                      <div key={member.id} className="text-center">
-                        <div className="rounded-xl overflow-hidden mx-auto mb-2" style={{ width: '80px', aspectRatio: '2/3', background: '#1a1a1a' }}>
-                          {photo
-                            ? <img src={photo} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
-                            : <div className="w-full h-full flex items-center justify-center" style={{ color: '#333' }}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-                              </div>
-                          }
-                        </div>
-                        <p className="text-xs font-semibold text-white truncate">{member.name}</p>
-                        <p className="text-[10px] truncate mt-0.5" style={{ color: '#555' }}>{member.character}</p>
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            }
-          </div>
+          enrichLoading
+            ? <CastLoading />
+            : <CastTab cast={cast} />
         )}
 
         {/* ── DETAILS TAB ── */}
@@ -246,7 +239,20 @@ export function MovieDetail() {
   )
 }
 
-// ── Trailers tab ────────────────────────────────────────────────────────────
+// ── Trailers tab ─────────────────────────────────────────────────────────────
+
+function TrailersLoading() {
+  return (
+    <div className="mb-10">
+      <div className="flex gap-2 mb-5">
+        {[100, 120, 90].map((w, i) => (
+          <div key={i} className="skeleton h-8 rounded-full" style={{ width: w }} />
+        ))}
+      </div>
+      <div className="skeleton rounded-2xl" style={{ aspectRatio: '16/9', maxHeight: 480 }} />
+    </div>
+  )
+}
 
 function TrailersTab({ videos, title }: { videos: TmdbVideo[]; title: string }) {
   const [selected, setSelected] = useState(0)
@@ -315,6 +321,59 @@ function TrailersTab({ videos, title }: { videos: TmdbVideo[]; title: string }) 
             {title} · {current.type}{current.official ? ' · Official' : ''} · YouTube
           </p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Cast tab ─────────────────────────────────────────────────────────────────
+
+function CastLoading() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pb-10">
+      {[...Array(12)].map((_, i) => (
+        <div key={i} className="flex flex-col items-center gap-2">
+          <div className="skeleton rounded-xl mx-auto" style={{ width: 80, aspectRatio: '2/3' }} />
+          <div className="skeleton" style={{ width: 64, height: 11 }} />
+          <div className="skeleton" style={{ width: 48, height: 9 }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CastTab({ cast }: { cast: TmdbCastMember[] }) {
+  if (cast.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-3" style={{ color: '#555' }}>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+        </svg>
+        <p className="text-sm">No cast information available.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="pb-10">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+        {cast.map(member => {
+          const photo = tmdbProfileImg(member.profile_path, 'w185')
+          return (
+            <div key={member.id} className="text-center">
+              <div className="rounded-xl overflow-hidden mx-auto mb-2" style={{ width: '80px', aspectRatio: '2/3', background: '#1a1a1a' }}>
+                {photo
+                  ? <img src={photo} alt={member.name} className="w-full h-full object-cover" loading="lazy" />
+                  : <div className="w-full h-full flex items-center justify-center" style={{ color: '#333' }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                    </div>
+                }
+              </div>
+              <p className="text-xs font-semibold text-white truncate">{member.name}</p>
+              <p className="text-[10px] truncate mt-0.5" style={{ color: '#555' }}>{member.character}</p>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
