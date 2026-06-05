@@ -46,6 +46,17 @@ mongoose
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`)
       if (isProd) console.log('Serving frontend from dist/')
+
+      // Ping to prevent Render from sleeping
+      const pingUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+      setInterval(async () => {
+        try {
+          const res = await fetch(`${pingUrl}/api/health`);
+          if (res.ok) console.log(`Ping successful to ${pingUrl}`);
+        } catch (err) {
+          console.error('Ping failed:', err.message);
+        }
+      }, 5 * 60 * 1000); // 5 minutes
     })
   })
   .catch((err) => {
