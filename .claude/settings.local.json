@@ -40,7 +40,15 @@
       "Bash(xdg-open *)",
       "Bash(xxd /tmp/stream_test.bin)",
       "Bash(agent-browser --args \"--no-sandbox\" open http://localhost:5174)",
-      "Bash(pkill -f \"vite --port 5174\")"
+      "Bash(pkill -f \"vite --port 5174\")",
+      "Bash(node --check index.js)",
+      "Bash(node --check models/User.js)",
+      "Bash(node --check routes/auth.js)",
+      "Bash(node --check routes/user.js)",
+      "Bash(node --check middleware/auth.js)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
