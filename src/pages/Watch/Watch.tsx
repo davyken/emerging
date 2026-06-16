@@ -36,10 +36,10 @@ export function Watch() {
   const containerRef = useRef<HTMLDivElement>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Data
-  const [title, setTitle] = useState('')
-  const [containerExt, setContainerExt] = useState('mp4')
-  const [loading, setLoading] = useState(true)
+// Data
+   const [title, setTitle] = useState('')
+   const [loading, setLoading] = useState(true)
+   const [jellyffinId, setJellyfinId] = useState<string | null>(null)
 
   // Playback state
   const [playing, setPlaying] = useState(true)
@@ -57,30 +57,31 @@ export function Watch() {
   const [currentQuality, setCurrentQuality] = useState<number>(-1) // -1 = Auto
   const [liveQuality, setLiveQuality] = useState<number>(-1) // actual auto-resolved level
 
-  // ── 1. Fetch detail ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!tmdbId) return
-    setLoading(true)
-    setTitle('')
-    const fetch = mediaType === 'movie' ? getMovieDetail(tmdbId) : getShowDetail(tmdbId)
-    fetch.then(d => {
-      setTitle('title' in d ? d.title : d.name)
-      if (d.container_extension) setContainerExt(d.container_extension)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }, [tmdbId, mediaType])
+// ── 1. Fetch detail ──────────────────────────────────────────────────────────
+   useEffect(() => {
+     if (!tmdbId) return
+     setLoading(true)
+     setTitle('')
+     setJellyfinId(null)
+     const fetch = mediaType === 'movie' ? getMovieDetail(tmdbId) : getShowDetail(tmdbId)
+     fetch.then(d => {
+       setTitle('title' in d ? d.title : d.name)
+       setJellyfinId(d.id)
+     }).catch(() => {}).finally(() => setLoading(false))
+   }, [tmdbId, mediaType])
 
-  // ── 2. Stream sources ────────────────────────────────────────────────────────
-  const streamSrc = useMemo(() => {
-    if (!tmdbId) return null
-    const host = (import.meta.env.VITE_XTREAM_HOST || '').replace(/^http:\/\//, 'https://')
-    const user = import.meta.env.VITE_XTREAM_USERNAME
-    const pass = import.meta.env.VITE_XTREAM_PASSWORD
-    const seg = mediaType === 'tv' ? 'series' : 'movie'
-    return {
-      hls: `${host}/${seg}/${user}/${pass}/${tmdbId}.m3u8`,
-      direct: `${host}/${seg}/${user}/${pass}/${tmdbId}.${containerExt}`,
-    }
-  }, [tmdbId, mediaType, containerExt])
+// ── 2. Stream sources (jellyfin.emergingstream.com) ──────────────────────────
+   const streamSrc = useMemo(() => {
+     if (!jellyffinId) return null
+     const base = import.meta.env.VITE_JELLYFIN_URL || 'https://jellyfin.emergingstream.com'
+     const key  = import.meta.env.VITE_API_KEY || ''
+     const id   = jellyffinId
+     // Use direct stream endpoint — Jellyfin will serve HLS or direct based on what's available
+     return {
+       hls:    `${base}/Videos/${id}/stream.mp4?api_key=${key}&static=true`,
+       direct: `${base}/Videos/${id}/stream.mp4?api_key=${key}&static=true`,
+     }
+   }, [jellyffinId])
 
   // ── 3. HLS setup (with direct-URL fallback) ──────────────────────────────────
   useEffect(() => {
@@ -261,21 +262,19 @@ export function Watch() {
                 <p className="text-xs font-semibold text-white">Settings</p>
               </div>
 
-              {/* Quality row — only when HLS quality levels are available */}
-              {qualityLevels.length > 0 && (
-                <button onClick={() => setSettingsView('quality')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2">
-                      <rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
-                    </svg>
-                    <span className="text-xs text-white">Quality</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs" style={{ color: 'var(--color-gold)' }}>{qualityBadge}</span>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
-                  </div>
-                </button>
-              )}
+              {/* Quality row — always visible */}
+              <button onClick={() => setSettingsView('quality')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
+                <div className="flex items-center gap-3">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
+                  </svg>
+                  <span className="text-xs text-white">Quality</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: 'var(--color-gold)' }}>{qualityBadge}</span>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+                </div>
+              </button>
 
               {/* Speed row */}
               <button onClick={() => setSettingsView('speed')} className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
@@ -291,40 +290,44 @@ export function Watch() {
             </>
           )}
 
-          {/* Quality sub-panel */}
-          {settingsView === 'quality' && (
-            <>
-              <button onClick={() => setSettingsView('root')} className="flex items-center gap-2 px-4 py-2.5 w-full hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
-                <p className="text-xs font-semibold text-white">Quality</p>
-              </button>
+{/* Quality sub-panel */}
+           {settingsView === 'quality' && (
+             <>
+               <button onClick={() => setSettingsView('root')} className="flex items-center gap-2 px-4 py-2.5 w-full hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
+                 <p className="text-xs font-semibold text-white">Quality</p>
+               </button>
 
-              {/* Auto */}
-              <button onClick={() => changeQuality(-1)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
-                <div className="flex flex-col items-start">
-                  <span className="text-xs text-white">Auto</span>
-                  {liveQuality >= 0 && (
-                    <span className="text-[10px]" style={{ color: '#666' }}>
-                      {qualityLabel(qualityLevels.find(l => l.index === liveQuality)?.height ?? 0)}
-                    </span>
-                  )}
-                </div>
-                {currentQuality === -1 && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                )}
-              </button>
+               {/* Auto (always available) */}
+               <button onClick={() => changeQuality(-1)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
+                 <div className="flex flex-col items-start">
+                   <span className="text-xs text-white">Auto</span>
+                   {liveQuality >= 0 && (
+                     <span className="text-[10px]" style={{ color: '#666' }}>
+                       {qualityLabel(qualityLevels.find(l => l.index === liveQuality)?.height ?? 0)}
+                     </span>
+                   )}
+                 </div>
+                 {currentQuality === -1 && (
+                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                 )}
+               </button>
 
-              {/* Fixed quality levels */}
-              {qualityLevels.map((lvl) => (
-                <button key={lvl.index} onClick={() => changeQuality(lvl.index)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
-                  <span className="text-xs text-white">{qualityLabel(lvl.height)}</span>
-                  {currentQuality === lvl.index && (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                  )}
-                </button>
-              ))}
-            </>
-          )}
+               {/* Fixed quality levels (only when HLS provides them) */}
+               {qualityLevels.length > 0 ? qualityLevels.map((lvl) => (
+                 <button key={lvl.index} onClick={() => changeQuality(lvl.index)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
+                   <span className="text-xs text-white">{qualityLabel(lvl.height)}</span>
+                   {currentQuality === lvl.index && (
+                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                   )}
+                 </button>
+               )) : (
+                 <div className="px-4 py-3">
+                   <span className="text-[10px]" style={{ color: '#666' }}>Quality selection available for HLS streams</span>
+                 </div>
+               )}
+             </>
+           )}
 
           {/* Speed sub-panel */}
           {settingsView === 'speed' && (

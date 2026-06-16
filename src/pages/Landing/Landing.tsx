@@ -11,10 +11,10 @@ const SIMILAR = [
 ]
 
 const CAST = [
-  { name: 'Adrian Pierce', role: 'Garde Ultime' },
-  { name: 'Elena Thorne', role: 'Lyra Brokenaya' },
-  { name: 'Marcus Sterling', role: 'Le Grand Conflit' },
-  { name: 'Sarah Lawden', role: 'Nova Protea' },
+  { name: 'Plomberie', role: 'Plombier & Technicien', img: '/tech-plumber.jpg' },
+  { name: 'Électricité', role: 'Électricien Certifié', img: '/tech-electrician.jpg' },
+  { name: 'Développement', role: 'Développeur Full-Stack', img: '/tech-developer.jpg' },
+  { name: 'Architecture', role: 'Architecte & Ingénieur', img: '/tech-architect.jpg' },
 ]
 
 function NavBar() {
@@ -153,12 +153,16 @@ export function Landing() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
             {CAST.map((c) => (
               <div key={c.name} className="flex flex-col items-center text-center gap-2">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold" style={{ background: 'linear-gradient(135deg,#2a1a00,#4a3000)', border: '2px solid rgba(201,168,76,0.3)' }}>
-                  {c.name[0]}
+                <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0" style={{ border: '2px solid rgba(201,168,76,0.3)' }}>
+                  <img
+                    src={c.img}
+                    alt={c.name}
+                    className="w-full h-full object-cover object-top"
+                  />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white">{c.name}</p>
-                  <p className="text-xs" style={{ color: '#666' }}>{c.role}</p>
+                  <p className="text-xs" style={{ color: '#888' }}>{c.role}</p>
                 </div>
               </div>
             ))}

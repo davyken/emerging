@@ -17,11 +17,11 @@
       "Bash(curl -s http://localhost:5174/)",
       "Bash(agent-browser skills *)",
       "Bash(agent-browser session *)",
-      "Bash(curl -s \"http://100.104.30.114:8096/LiveTv/Channels?api_key=$\\(grep VITE_API_KEY .env)",
+      "Bash(curl -s \"http://100.104.30.114:8096/LiveTv/Channels?api_key=$\\(grep VITE_API_KEY .env)\",
       "Bash(python3 -m json.tool)",
       "Bash(echo \"Exit: $?\")",
-      "Bash(curl -s \"http://100.104.30.114:8096/LiveTv/Channels?api_key=fe075f4f78c64d2581c54db7d69785f6&limit=5\")",
-      "Bash(curl -s \"http://100.104.30.114:8096/Users/ed5393aeaf7b41ebb87ac02792cae013/Items?IncludeItemTypes=Movie&Recursive=true&Limit=3&api_key=fe075f4f78c64d2581c54db7d69785f6\")",
+      "Bash(curl -s \"http://100.104.30.114:8096/LiveTv/Channels?api_key=YOUR_JELLYFIN_API_KEY&limit=5\")",
+      "Bash(curl -s \"http://100.104.30.114:8096/Users/ed5393aeaf7b41ebb87ac02792cae013/Items?IncludeItemTypes=Movie&Recursive=true&Limit=3&api_key=YOUR_JELLYFIN_API_KEY\")",
       "Bash(curl *)",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('Total:', d.get\\('TotalRecordCount'\\), '| Items:', len\\(d.get\\('Items',[]\\)\\)\\)\")",
       "Bash(ping -c 2 -W 3 100.104.30.114)",
@@ -48,7 +48,9 @@
       "Bash(node --check middleware/auth.js)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "WebSearch",
+      "WebFetch(domain:www.pexels.com)"
     ]
   }
 }

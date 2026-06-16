@@ -169,8 +169,11 @@ export function TVGuide() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: ['#c00','#2a0060','#007000','#004090','#700000','#600040'][i % 6], color: 'white' }}>
-                        {ch.name.slice(0, 2).toUpperCase()}
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden" style={{ background: ['#c00','#2a0060','#007000','#004090','#700000','#600040'][i % 6], color: 'white' }}>
+                        {ch.logo
+                          ? <img src={ch.logo} alt={ch.name} className="w-full h-full object-contain p-0.5" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                          : ch.name.slice(0, 2).toUpperCase()
+                        }
                       </div>
                       <div>
                         <p className="text-xs font-bold text-white">{ch.name}</p>

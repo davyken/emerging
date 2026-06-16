@@ -1,51 +1,80 @@
 import type { Channel, EPGData } from '../types/xg2g'
 
-// ── Xtream Codes credentials (needed only for stream URLs, not API calls) ─────
-const XTREAM_HOST = import.meta.env.VITE_XTREAM_HOST || ''
-const XTREAM_USER = import.meta.env.VITE_XTREAM_USERNAME || ''
-const XTREAM_PASS = import.meta.env.VITE_XTREAM_PASSWORD || ''
-// API calls go through the backend proxy (avoids mixed-content on HTTPS)
-const XTREAM_API = '/api/xtream'
+// Use the local backend proxy for guide URLs to avoid browser CORS issues.
+const GUIDE_API = '/api/guide'
 
-// ── Jellyfin / VITE_XG2G_URL approach (commented out) ────────────────────────
-// import axios from 'axios'
-// const BASE    = import.meta.env.VITE_XG2G_URL
-// const API_KEY = import.meta.env.VITE_API_KEY
-// const client  = axios.create({ baseURL: BASE, timeout: 8000 })
-//
-// Old getChannels — Jellyfin LiveTv endpoint:
-// export async function getChannels(): Promise<Channel[]> {
-//   try {
-//     const res = await client.get(`/LiveTv/Channels?api_key=${API_KEY}`)
-//     if (!res.data || !res.data.Items) return []
-//     return res.data.Items.map((item: any) => ({
-//       id: item.Id,
-//       name: item.Name,
-//       group: item.Tags?.[0] || 'Général',
-//       streamUrl: getChannelStreamUrl(item.Id),
-//       logo: item.ImageTags?.Primary
-//         ? `${BASE}/Items/${item.Id}/Images/Primary?api_key=${API_KEY}`
-//         : '',
-//     }))
-//   } catch { return [] }
-// }
-//
-// Old getEPG — Jellyfin LiveTv Programs endpoint:
-// export async function getEPG(): Promise<EPGData> {
-//   try {
-//     const res = await client.get(`/LiveTv/Programs?api_key=${API_KEY}&HasAired=false&limit=1000`)
-//     ...
-//   } catch { return {} }
-// }
-//
-// Old getChannelStreamUrl — Jellyfin HLS transcode:
-// export function getChannelStreamUrl(channelId: string): string {
-//   const playSessionId = crypto.randomUUID()
-//   return `${BASE}/Videos/${channelId}/master.m3u8?api_key=${API_KEY}&MediaSourceId=${channelId}&PlaySessionId=${playSessionId}&VideoCodec=h264&AudioCodec=aac&TranscodingProtocol=hls&SegmentContainer=ts`
-// }
+// ── M3U parser ────────────────────────────────────────────────────────────────
+function parseM3U(text: string): Channel[] {
+  const channels: Channel[] = []
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
 
-/** Timeout wrapper — avoids hanging if the Xtream server is unreachable */
-async function fetchTimeout(url: string, ms = 12000): Promise<Response> {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line.startsWith('#EXTINF:')) continue
+
+    // Extract attributes from the #EXTINF line
+    const attrMatch = line.match(/#EXTINF:[^,]*(.*),(.*)/)
+    if (!attrMatch) continue
+
+    const attrStr = attrMatch[1]
+    const displayName = attrMatch[2].trim()
+    const streamUrl = lines[i + 1] && !lines[i + 1].startsWith('#') ? lines[i + 1].trim() : ''
+    if (!streamUrl) continue
+
+    const get = (key: string) => {
+      const m = attrStr.match(new RegExp(`${key}="([^"]*)"`, 'i'))
+      return m ? m[1] : ''
+    }
+
+    const id = get('tvg-id') || get('tvg-name') || displayName
+    channels.push({
+      id,
+      name: get('tvg-name') || displayName,
+      group: get('group-title') || 'Général',
+      streamUrl,
+      logo: get('tvg-logo'),
+    })
+  }
+  return channels
+}
+
+// ── XMLTV parser ──────────────────────────────────────────────────────────────
+function parseXmltvDate(dt: string): string {
+  // Format: YYYYMMDDHHmmss +HHMM  or  YYYYMMDDHHmmss +HH:MM
+  const m = dt.trim().match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*([+-]\d{2}):?(\d{2})$/)
+  if (!m) return new Date().toISOString()
+  return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7]}:${m[8]}`
+}
+
+function parseXMLTV(text: string): EPGData {
+  try {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(text, 'text/xml')
+    const result: EPGData = {}
+
+    doc.querySelectorAll('programme').forEach(prog => {
+      const channel = prog.getAttribute('channel') || ''
+      const start = parseXmltvDate(prog.getAttribute('start') || '')
+      const stop = parseXmltvDate(prog.getAttribute('stop') || '')
+      const title = prog.querySelector('title')?.textContent || ''
+      const desc = prog.querySelector('desc')?.textContent || ''
+
+      if (!result[channel]) result[channel] = []
+      result[channel].push({ channelId: channel, title, description: desc, start, stop })
+    })
+    return result
+  } catch {
+    return {}
+  }
+}
+
+// ── In-memory caches (30 min TTL) ─────────────────────────────────────────────
+const CACHE_TTL = 30 * 60 * 1000
+
+let channelCache: { data: Channel[]; ts: number } | null = null
+let epgCache: { data: EPGData; ts: number } | null = null
+
+async function fetchTimeout(url: string, ms = 15000): Promise<Response> {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), ms)
   try {
@@ -55,82 +84,57 @@ async function fetchTimeout(url: string, ms = 12000): Promise<Response> {
   }
 }
 
-// ── In-memory cache (30 min TTL) ─────────────────────────────────────────────
-const CACHE_TTL = 30 * 60 * 1000
-let channelCache: { data: Channel[]; ts: number } | null = null
-
-// ── Live channels via Xtream Codes ────────────────────────────────────────────
+// ── Channels from Threadfin M3U ───────────────────────────────────────────────
 export async function getChannels(): Promise<Channel[]> {
   if (channelCache && Date.now() - channelCache.ts < CACHE_TTL) return channelCache.data
+
   try {
-    const res = await fetchTimeout(`${XTREAM_API}?action=get_live_streams`)
+    const res = await fetchTimeout(`${GUIDE_API}/m3u`)
     if (!res.ok) return channelCache?.data ?? []
-    const data = await res.json()
-    if (!Array.isArray(data)) return channelCache?.data ?? []
-    const channels = data.map((item: any) => ({
-      id: String(item.stream_id),
-      name: item.name,
-      group: item.category_id || 'Général',
-      streamUrl: getChannelStreamUrl(String(item.stream_id)),
-      logo: item.stream_icon || '',
-    }))
-    channelCache = { data: channels, ts: Date.now() }
-    return channels
+    const text = await res.text()
+    const channels = parseM3U(text)
+    if (channels.length > 0) channelCache = { data: channels, ts: Date.now() }
+    return channels.length > 0 ? channels : (channelCache?.data ?? [])
   } catch {
     return channelCache?.data ?? []
   }
 }
 
-// ── EPG via Xtream Codes ──────────────────────────────────────────────────────
-/**
- * Returns a minimal EPG map for the channels currently loaded.
- * Xtream exposes per-channel short EPG via get_short_epg — fetching it for
- * every channel in one go would be N requests, so we return an empty map here
- * and let the WatchIPTV page call getChannelEPG(id) individually when needed.
- */
+// ── Full EPG from Threadfin XMLTV ─────────────────────────────────────────────
 export async function getEPG(): Promise<EPGData> {
-  return {}
-}
+  if (epgCache && Date.now() - epgCache.ts < CACHE_TTL) return epgCache.data
 
-/**
- * Fetches short EPG for a single channel.
- * Replaces the old all-channels approach that used Jellyfin's /LiveTv/Programs.
- */
-export async function getChannelEPG(streamId: string, limit = 10): Promise<EPGData> {
   try {
-    const res = await fetchTimeout(
-      `${XTREAM_API}?action=get_short_epg&stream_id=${streamId}&limit=${limit}`,
-    )
-    if (!res.ok) return {}
-    const data = await res.json()
-    const listings: any[] = data?.epg_listings ?? []
-    return {
-      [streamId]: listings.map((p: any) => ({
-        channelId: streamId,
-        title: p.title ? atob(p.title) : p.name || 'Programme',
-        description: p.description ? atob(p.description) : '',
-        start: new Date(p.start_timestamp * 1000).toISOString(),
-        stop: new Date(p.stop_timestamp * 1000).toISOString(),
-      })),
-    }
+    const res = await fetchTimeout(`${GUIDE_API}/epg`, 20000)
+    if (!res.ok) return epgCache?.data ?? {}
+    const text = await res.text()
+    const data = parseXMLTV(text)
+    if (Object.keys(data).length > 0) epgCache = { data, ts: Date.now() }
+    return Object.keys(data).length > 0 ? data : (epgCache?.data ?? {})
   } catch {
-    return {}
+    return epgCache?.data ?? {}
   }
 }
 
-/**
- * Returns the HLS stream URL for a live channel.
- * Xtream format: http://HOST/live/USERNAME/PASSWORD/STREAM_ID.m3u8
- */
-export function getChannelStreamUrl(streamId: string): string {
-  const safeHost = XTREAM_HOST.replace(/^http:\/\//, 'https://')
-  return `${safeHost}/live/${XTREAM_USER}/${XTREAM_PASS}/${streamId}.m3u8`
+// ── Per-channel EPG (uses full EPG cache) ─────────────────────────────────────
+export async function getChannelEPG(channelId: string): Promise<EPGData> {
+  const all = await getEPG()
+  return all[channelId] ? { [channelId]: all[channelId] } : {}
 }
 
-/**
- * Resolves the stream URL for the player.
- * Kept as async to stay compatible with the existing openChannelStream() calls.
- */
-export function openChannelStream(streamId: string): Promise<string> {
-  return Promise.resolve(getChannelStreamUrl(streamId))
+// ── Stream URL (HLS from MediaMTX via the URL already in the M3U) ─────────────
+export function getChannelStreamUrl(channelId: string): string {
+  // Stream URLs come directly from the M3U fetched from Threadfin.
+  // This function is kept for compatibility; callers should prefer using
+  // the streamUrl field on the Channel object returned by getChannels().
+  const IPTV = import.meta.env.VITE_IPTV_URL || 'https://iptv.emergingstream.com'
+  return `${IPTV}/${channelId}/index.m3u8`
+}
+
+export async function openChannelStream(channelId: string): Promise<string> {
+  // Try to return the exact URL from the M3U (which already points to MediaMTX)
+  const channels = await getChannels()
+  const ch = channels.find(c => c.id === channelId)
+  if (ch?.streamUrl) return ch.streamUrl
+  return getChannelStreamUrl(channelId)
 }

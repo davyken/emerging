@@ -1,12 +1,10 @@
 import { useState, FormEvent } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../../services/authApi'
-import { useAuthStore } from '../../store/authStore'
 
 export function ResetPassword() {
   const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
-  const setAuth = useAuthStore((s) => s.setAuth)
 
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')

@@ -6,7 +6,8 @@ const cors = require('cors')
 
 const authRoutes = require('./routes/auth')
 const userRoutes = require('./routes/user')
-const xtreamRoutes = require('./routes/xtream')
+// const xtreamRoutes = require('./routes/xtream') // Disabled - using Jellyfin only
+const guideRoutes = require('./routes/guide')
 
 const app = express()
 const isProd = process.env.NODE_ENV === 'production'
@@ -22,7 +23,8 @@ app.use(express.json({ limit: '2mb' }))
 // API routes
 app.use('/api/auth', authRoutes)
 app.use('/api/user', userRoutes)
-app.use('/api/xtream', xtreamRoutes)
+// app.use('/api/xtream', xtreamRoutes) // Disabled - using Jellyfin only
+app.use('/api/guide', guideRoutes)
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }))
 
 if (isProd) {

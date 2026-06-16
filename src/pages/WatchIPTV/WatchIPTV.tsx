@@ -371,8 +371,11 @@ export function WatchIPTV() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-end gap-3">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: '#700', color: 'white' }}>
-            {(channel?.name || 'CH').slice(0, 2).toUpperCase()}
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden" style={{ background: '#700', color: 'white' }}>
+            {channel?.logo
+              ? <img src={channel.logo} alt={channel.name} className="w-full h-full object-contain p-0.5" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              : (channel?.name || 'CH').slice(0, 2).toUpperCase()
+            }
           </div>
           <div>
             <p className="text-sm font-bold text-white">{nowPlaying?.title || channel?.name || 'En cours'}</p>
