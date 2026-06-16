@@ -37,6 +37,10 @@ export function useHlsPlayer({ src, autoPlay = false }: UseHlsPlayerOptions) {
           index: i,
         }))
         setLevels(qualityLevels)
+        if (qualityLevels[0]) {
+          hls.currentLevel = qualityLevels[0].index
+          setCurrentLevel(qualityLevels[0].index)
+        }
         setIsReady(true)
         if (autoPlay) video.play().catch(() => null)
       })

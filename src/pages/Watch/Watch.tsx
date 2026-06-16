@@ -18,6 +18,7 @@ function qualityLabel(height: number): string {
   if (height >= 1080) return '1080p'
   if (height >= 720) return '720p'
   if (height >= 480) return '480p'
+  if (height >= 420) return '420p'
   if (height >= 360) return '360p'
   if (height >= 240) return '240p'
   if (height > 0) return `${height}p`
@@ -76,11 +77,11 @@ export function Watch() {
      const base = import.meta.env.VITE_JELLYFIN_URL || 'https://jellyfin.emergingstream.com'
      const key  = import.meta.env.VITE_API_KEY || ''
      const id   = jellyffinId
-     // Use direct stream endpoint — Jellyfin will serve HLS or direct based on what's available
-     return {
-       hls:    `${base}/Videos/${id}/stream.mp4?api_key=${key}&static=true`,
-       direct: `${base}/Videos/${id}/stream.mp4?api_key=${key}&static=true`,
-     }
+      // Use the HLS master playlist so hls.js can expose all variant levels.
+      return {
+        hls:    `${base}/Videos/${id}/master.m3u8?api_key=${key}`,
+        direct: `${base}/Videos/${id}/stream.mp4?api_key=${key}&static=true`,
+      }
    }, [jellyffinId])
 
   // ── 3. HLS setup (with direct-URL fallback) ──────────────────────────────────
@@ -114,6 +115,10 @@ export function Watch() {
           .map((l, i) => ({ height: l.height, index: i }))
           .sort((a, b) => b.height - a.height)
         setQualityLevels(levels)
+        if (levels[0]) {
+          hls.currentLevel = levels[0].index
+          setCurrentQuality(levels[0].index)
+        }
         video.play().catch(() => null)
       })
 
@@ -200,12 +205,24 @@ export function Watch() {
     setShowSettings(false); setSettingsView('root')
   }
 
+  function cycleQuality() {
+    if (qualityLevels.length === 0) return
+    const fixedLevels = qualityLevels.map(l => l.index)
+    const currentIndex = fixedLevels.indexOf(currentQuality)
+    const nextLevel = currentIndex >= 0
+      ? fixedLevels[(currentIndex + 1) % fixedLevels.length]
+      : fixedLevels[0]
+    changeQuality(nextLevel)
+  }
+
   // Label shown next to "Quality" in the root settings menu
   const qualityBadge = currentQuality === -1
     ? liveQuality >= 0 && qualityLevels[0]
       ? `Auto (${qualityLabel(qualityLevels.find(l => l.index === liveQuality)?.height ?? 0)})`
       : 'Auto'
     : qualityLabel(qualityLevels.find(l => l.index === currentQuality)?.height ?? 0)
+
+  const qualityButtonText = qualityBadge.replace(/^Auto \(([^)]+)\)$/, '$1').replace(/^Auto$/, 'Auto')
 
   return (
     <div
@@ -406,6 +423,16 @@ export function Watch() {
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
             </a>
+          )}
+
+          {qualityLevels.length > 0 && (
+            <button onClick={(e) => { e.stopPropagation(); cycleQuality() }}
+              className="flex items-center justify-center min-w-[54px] h-8 sm:h-9 rounded-lg flex-shrink-0 hover:bg-white/10 transition-colors"
+              style={{ color: 'var(--color-gold)' }}
+              title="Change quality"
+            >
+              <span className="text-[10px] font-semibold">{qualityButtonText}</span>
+            </button>
           )}
 
           {/* Settings button */}

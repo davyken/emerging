@@ -7,6 +7,17 @@ interface VideoPlayerProps {
   className?: string
 }
 
+function qualityLabel(height: number): string {
+  if (height >= 1080) return '1080p'
+  if (height >= 720) return '720p'
+  if (height >= 480) return '480p'
+  if (height >= 420) return '420p'
+  if (height >= 360) return '360p'
+  if (height >= 240) return '240p'
+  if (height > 0) return `${height}p`
+  return 'Auto'
+}
+
 export function VideoPlayer({ src, autoPlay = false, className = '' }: VideoPlayerProps) {
   const { videoRef, levels, currentLevel, isReady, error, setQualityLevel, setAutoQuality } = useHlsPlayer({ src, autoPlay })
 
@@ -72,11 +83,11 @@ export function VideoPlayer({ src, autoPlay = false, className = '' }: VideoPlay
             className="bg-black/80 text-white text-sm px-2 py-1 rounded border border-white/20 cursor-pointer"
           >
             <option value="auto">Auto</option>
-            {[...levels].reverse().map((l) => (
-              <option key={l.index} value={l.index}>
-                {l.height}p
-              </option>
-            ))}
+              {[...levels].reverse().map((l) => (
+                <option key={l.index} value={l.index}>
+                  {qualityLabel(l.height)}
+                </option>
+              ))}
           </select>
         </div>
       )}
