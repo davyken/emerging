@@ -56,6 +56,7 @@ export function Watch() {
   const hlsRef = useRef<Hls | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const previousPlaybackRef = useRef({ time: 0, playing: false })
 
 // Data
    const [title, setTitle] = useState('')
@@ -130,6 +131,8 @@ export function Watch() {
   useEffect(() => {
     const video = videoRef.current
     if (!video || !streamSrc) return
+    const restoreTime = previousPlaybackRef.current.time
+    const shouldResume = previousPlaybackRef.current.playing
 
     // Clean up previous instance
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null }
@@ -166,7 +169,7 @@ export function Watch() {
         updateQualityLevels(data.levels.length > 0 ? data.levels : hls.levels)
         hls.currentLevel = -1
         setCurrentQuality(-1)
-        video.play().catch(() => null)
+        if (restoreTime <= 0) video.play().catch(() => null)
       })
 
       hls.on(Hls.Events.LEVELS_UPDATED, (_, data) => {
@@ -196,11 +199,21 @@ export function Watch() {
       video.play().catch(() => null)
     }
 
+    let restoreTimer: ReturnType<typeof setTimeout> | null = null
+    if (restoreTime > 0) {
+      restoreTimer = setTimeout(() => {
+        const maxTime = video.duration && isFinite(video.duration) ? video.duration : restoreTime
+        video.currentTime = Math.min(restoreTime, maxTime)
+        if (shouldResume) video.play().catch(() => null)
+      }, 600)
+    }
+
     return () => {
       video.removeEventListener('timeupdate', onTime)
       video.removeEventListener('durationchange', onDuration)
       video.removeEventListener('play', onPlay)
       video.removeEventListener('pause', onPause)
+      if (restoreTimer) clearTimeout(restoreTimer)
       if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null }
     }
   }, [streamSrc])
@@ -257,6 +270,11 @@ export function Watch() {
   }
 
   function changeSourceQuality(index: number) {
+    const video = videoRef.current
+    previousPlaybackRef.current = {
+      time: video?.currentTime ?? 0,
+      playing: !!video && !video.paused && !video.ended,
+    }
     setSelectedQualityIndex(index)
     setCurrentQuality(-1)
     setLiveQuality(-1)
