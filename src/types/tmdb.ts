@@ -15,6 +15,7 @@ export type TmdbMovie = {
   popularity: number
   original_language: string
   media_type?: 'movie'
+  mediaSources?: JellyfinMediaSource[]
 }
 
 export type TmdbShow = {
@@ -35,6 +36,7 @@ export type TmdbShow = {
   popularity: number
   original_language: string
   media_type?: 'tv'
+  mediaSources?: JellyfinMediaSource[]
 }
 
 export type TmdbVideo = {
@@ -64,6 +66,22 @@ export type TmdbListResult<T> = {
 }
 
 export type TmdbMediaType = 'movie' | 'tv'
+
+export type JellyfinMediaSource = {
+  Id: string
+  Name?: string
+  Container?: string
+  Bitrate?: number
+  MediaStreams?: Array<{
+    Type: string
+    Codec?: string
+    Width?: number
+    Height?: number
+    DisplayTitle?: string
+    IsInterlaced?: boolean
+    BitRate?: number
+  }>
+}
 
 export type TmdbTrendingItem =
   | (TmdbMovie & { media_type: 'movie' })

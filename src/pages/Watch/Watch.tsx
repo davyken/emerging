@@ -1,9 +1,29 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Hls from 'hls.js'
-import { getMovieDetail, getShowDetail } from '../../services/tmdbApi'
+import { getMovieDetail, getShowDetail, getPlaybackInfo } from '../../services/tmdbApi'
 
 const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
+
+type StreamSource = {
+  mediaSourceId: string
+  label: string
+  hls: string
+  direct: string
+}
+
+function sourceHeight(mediaSource: any): number | undefined {
+  const height = mediaSource?.MediaStreams?.find((stream: any) => stream.Type === 'Video')?.Height
+  if (height) return height
+  const match = mediaSource?.Name?.match(/(\d{3,4})p/i)
+  return match ? Number(match[1]) : undefined
+}
+
+function sourceLabel(mediaSource: any): string {
+  const height = sourceHeight(mediaSource)
+  if (height) return `${height}p`
+  return mediaSource?.Name || 'Auto'
+}
 
 function formatTime(s: number): string {
   if (!s || isNaN(s)) return '00:00'
@@ -41,6 +61,8 @@ export function Watch() {
    const [title, setTitle] = useState('')
    const [loading, setLoading] = useState(true)
    const [jellyffinId, setJellyfinId] = useState<string | null>(null)
+   const [mediaSources, setMediaSources] = useState<any[]>([])
+   const [selectedQualityIndex, setSelectedQualityIndex] = useState(0)
 
   // Playback state
   const [playing, setPlaying] = useState(true)
@@ -65,24 +87,44 @@ export function Watch() {
      setTitle('')
      setJellyfinId(null)
      const fetch = mediaType === 'movie' ? getMovieDetail(tmdbId) : getShowDetail(tmdbId)
-     fetch.then(d => {
-       setTitle('title' in d ? d.title : d.name)
-       setJellyfinId(d.id)
-     }).catch(() => {}).finally(() => setLoading(false))
+      fetch.then(d => {
+        setTitle('title' in d ? d.title : d.name)
+        setJellyfinId(d.id)
+        setMediaSources(d.mediaSources ?? [])
+        setSelectedQualityIndex(0)
+        return getPlaybackInfo(d.id)
+      })
+      .then(info => {
+        const qualities = info?.MediaSources
+        setMediaSources(qualities ?? [])
+        setSelectedQualityIndex(0)
+      })
+      .catch(() => {}).finally(() => setLoading(false))
    }, [tmdbId, mediaType])
 
 // ── 2. Stream sources (jellyfin.emergingstream.com) ──────────────────────────
-   const streamSrc = useMemo(() => {
-     if (!jellyffinId) return null
+   const streamSources = useMemo<StreamSource[]>(() => {
+     if (!jellyffinId) return []
      const base = import.meta.env.VITE_JELLYFIN_URL || 'https://jellyfin.emergingstream.com'
      const key  = import.meta.env.VITE_API_KEY || ''
      const id   = jellyffinId
-      // Use the HLS master playlist so hls.js can expose all variant levels.
-      return {
-        hls:    `${base}/Videos/${id}/master.m3u8?api_key=${key}`,
-        direct: `${base}/Videos/${id}/stream.mp4?api_key=${key}&static=true`,
-      }
-   }, [jellyffinId])
+     const sources = mediaSources?.length ? mediaSources : [{ Id: '', Name: 'Auto' }]
+
+     return sources.map(source => {
+       const params = new URLSearchParams({ api_key: key })
+       if (source.Id) params.set('mediaSourceId', source.Id)
+       const query = params.toString()
+
+       return {
+         mediaSourceId: source.Id,
+         label: sourceLabel(source),
+         hls: `${base}/Videos/${id}/master.m3u8?${query}`,
+         direct: `${base}/Videos/${id}/stream.mp4?${query}&static=true`,
+       }
+     }).sort((a, b) => (sourceHeight({ Name: b.label }) ?? 0) - (sourceHeight({ Name: a.label }) ?? 0))
+   }, [jellyffinId, mediaSources])
+
+   const streamSrc = streamSources[selectedQualityIndex] ?? null
 
   // ── 3. HLS setup (with direct-URL fallback) ──────────────────────────────────
   useEffect(() => {
@@ -94,6 +136,16 @@ export function Watch() {
     setQualityLevels([])
     setCurrentQuality(-1)
     setLiveQuality(-1)
+
+    const updateQualityLevels = (levels: Array<{ height: number }>) => {
+      const nextLevels = levels
+        .map((l, i) => ({ height: l.height, index: i }))
+        .sort((a, b) => b.height - a.height)
+      setQualityLevels(nextLevels)
+      if (nextLevels.length > 0 && liveQuality < 0) {
+        setLiveQuality(nextLevels[0].index)
+      }
+    }
 
     const onTime = () => setCurrentTime(video.currentTime)
     const onDuration = () => setDuration(video.duration)
@@ -111,15 +163,14 @@ export function Watch() {
       hls.attachMedia(video)
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-        const levels = data.levels
-          .map((l, i) => ({ height: l.height, index: i }))
-          .sort((a, b) => b.height - a.height)
-        setQualityLevels(levels)
-        if (levels[0]) {
-          hls.currentLevel = levels[0].index
-          setCurrentQuality(levels[0].index)
-        }
+        updateQualityLevels(data.levels.length > 0 ? data.levels : hls.levels)
+        hls.currentLevel = -1
+        setCurrentQuality(-1)
         video.play().catch(() => null)
+      })
+
+      hls.on(Hls.Events.LEVELS_UPDATED, (_, data) => {
+        updateQualityLevels(data.levels.length > 0 ? data.levels : hls.levels)
       })
 
       hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
@@ -205,7 +256,21 @@ export function Watch() {
     setShowSettings(false); setSettingsView('root')
   }
 
+  function changeSourceQuality(index: number) {
+    setSelectedQualityIndex(index)
+    setCurrentQuality(-1)
+    setLiveQuality(-1)
+    setShowSettings(false)
+    setSettingsView('root')
+  }
+
   function cycleQuality() {
+    if (streamSources.length > 1) {
+      setSelectedQualityIndex(index => (index + 1) % streamSources.length)
+      setCurrentQuality(-1)
+      setLiveQuality(-1)
+      return
+    }
     if (qualityLevels.length === 0) return
     const fixedLevels = qualityLevels.map(l => l.index)
     const currentIndex = fixedLevels.indexOf(currentQuality)
@@ -222,7 +287,9 @@ export function Watch() {
       : 'Auto'
     : qualityLabel(qualityLevels.find(l => l.index === currentQuality)?.height ?? 0)
 
-  const qualityButtonText = qualityBadge.replace(/^Auto \(([^)]+)\)$/, '$1').replace(/^Auto$/, 'Auto')
+  const qualityButtonText = streamSources.length > 1
+    ? streamSources[selectedQualityIndex]?.label || 'Auto'
+    : qualityBadge.replace(/^Auto \(([^)]+)\)$/, '$1').replace(/^Auto$/, 'Auto')
 
   return (
     <div
@@ -288,7 +355,7 @@ export function Watch() {
                   <span className="text-xs text-white">Quality</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs" style={{ color: 'var(--color-gold)' }}>{qualityBadge}</span>
+                  <span className="text-xs" style={{ color: 'var(--color-gold)' }}>{qualityButtonText}</span>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
                 </div>
               </button>
@@ -315,33 +382,44 @@ export function Watch() {
                  <p className="text-xs font-semibold text-white">Quality</p>
                </button>
 
-               {/* Auto (always available) */}
-               <button onClick={() => changeQuality(-1)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
-                 <div className="flex flex-col items-start">
-                   <span className="text-xs text-white">Auto</span>
-                   {liveQuality >= 0 && (
-                     <span className="text-[10px]" style={{ color: '#666' }}>
-                       {qualityLabel(qualityLevels.find(l => l.index === liveQuality)?.height ?? 0)}
-                     </span>
-                   )}
-                 </div>
-                 {currentQuality === -1 && (
-                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                 )}
-               </button>
-
-               {/* Fixed quality levels (only when HLS provides them) */}
-               {qualityLevels.length > 0 ? qualityLevels.map((lvl) => (
-                 <button key={lvl.index} onClick={() => changeQuality(lvl.index)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
-                   <span className="text-xs text-white">{qualityLabel(lvl.height)}</span>
-                   {currentQuality === lvl.index && (
+               {streamSources.length > 1 ? streamSources.map((source, index) => (
+                 <button key={source.mediaSourceId || source.label} onClick={() => changeSourceQuality(index)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
+                   <span className="text-xs text-white">{source.label}</span>
+                   {selectedQualityIndex === index && (
                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
                    )}
                  </button>
                )) : (
-                 <div className="px-4 py-3">
-                   <span className="text-[10px]" style={{ color: '#666' }}>Quality selection available for HLS streams</span>
-                 </div>
+                 <>
+                   {/* Auto (always available) */}
+                   <button onClick={() => changeQuality(-1)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
+                     <div className="flex flex-col items-start">
+                       <span className="text-xs text-white">Auto</span>
+                       {liveQuality >= 0 && (
+                         <span className="text-[10px]" style={{ color: '#666' }}>
+                           {qualityLabel(qualityLevels.find(l => l.index === liveQuality)?.height ?? 0)}
+                         </span>
+                       )}
+                     </div>
+                     {currentQuality === -1 && (
+                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                     )}
+                   </button>
+
+                   {/* Fixed quality levels (only when HLS provides them) */}
+                   {qualityLevels.length > 0 ? qualityLevels.map((lvl) => (
+                     <button key={lvl.index} onClick={() => changeQuality(lvl.index)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 transition-colors">
+                       <span className="text-xs text-white">{qualityLabel(lvl.height)}</span>
+                       {currentQuality === lvl.index && (
+                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-gold)" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                       )}
+                     </button>
+                   )) : (
+                     <div className="px-4 py-3">
+                       <span className="text-[10px]" style={{ color: '#666' }}>Quality selection available for HLS streams</span>
+                     </div>
+                   )}
+                 </>
                )}
              </>
            )}
@@ -425,15 +503,13 @@ export function Watch() {
             </a>
           )}
 
-          {qualityLevels.length > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); cycleQuality() }}
-              className="flex items-center justify-center min-w-[54px] h-8 sm:h-9 rounded-lg flex-shrink-0 hover:bg-white/10 transition-colors"
-              style={{ color: 'var(--color-gold)' }}
-              title="Change quality"
-            >
-              <span className="text-[10px] font-semibold">{qualityButtonText}</span>
-            </button>
-          )}
+          <button onClick={(e) => { e.stopPropagation(); cycleQuality() }}
+            className="flex items-center justify-center min-w-[54px] h-8 sm:h-9 rounded-lg flex-shrink-0 hover:bg-white/10 transition-colors"
+            style={{ color: 'var(--color-gold)' }}
+            title="Change quality"
+          >
+            <span className="text-[10px] font-semibold">{qualityButtonText}</span>
+          </button>
 
           {/* Settings button */}
           <button onClick={(e) => { e.stopPropagation(); setSettingsView('root'); setShowSettings(v => !v) }}

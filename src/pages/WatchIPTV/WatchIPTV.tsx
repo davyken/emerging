@@ -68,27 +68,6 @@ export function WatchIPTV() {
 
     const src = await openChannelStream(id)
 
-    // ── Preflight: quick HEAD check before handing to HLS.js ─────────────────
-    // This catches redirect-to-expired / server errors in ~5 s instead of
-    // waiting through HLS.js's full retry cycle (formerly up to 20+ minutes).
-    try {
-      const ctrl = new AbortController()
-      const t = setTimeout(() => ctrl.abort(), 7000)
-      const probe = await fetch(src, { method: 'HEAD', signal: ctrl.signal })
-      clearTimeout(t)
-      const ct = probe.headers.get('content-type') || ''
-      // If the server redirects to an mp4 (e.g. Expired.mp4) or returns a
-      // non-HLS content-type, bail out immediately with an error.
-      if (!probe.ok || (ct && !ct.includes('mpegurl') && !ct.includes('octet-stream') && ct.includes('mp4'))) {
-        setStreamError(true)
-        setStreamLoading(false)
-        return
-      }
-    } catch {
-      // AbortError (timeout) or network failure — let HLS.js try anyway;
-      // it will surface its own error quickly with the tight timeouts below.
-    }
-
     if (Hls.isSupported()) {
       hlsRef.current?.destroy()
       const hls = new Hls({
@@ -108,6 +87,9 @@ export function WatchIPTV() {
         liveMaxLatencyDurationCount: 10,
         enableWorker: true,
         lowLatencyMode: false,
+        xhrSetup: (xhr) => {
+          xhr.withCredentials = true
+        },
       })
       hlsRef.current = hls
       hls.loadSource(src)
@@ -269,7 +251,7 @@ export function WatchIPTV() {
       )}
 
       {/* Video */}
-      <video ref={videoRef} className="w-full h-full object-contain" playsInline />
+      <video ref={videoRef} className="w-full h-full object-contain" playsInline style={{ position: 'relative', zIndex: 10 }} />
 
       {/* Demo background */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 100% 60% at 40% 50%, #003a3a 0%, #001a1a 40%, #000a0a 100%)', zIndex: 0 }} />

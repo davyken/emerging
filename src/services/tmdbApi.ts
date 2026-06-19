@@ -48,7 +48,7 @@ const cache: Record<string, { data: any[]; ts: number }> = {}
 
 async function jellyfinItems(itemType: 'Movie' | 'Series', limit = 20, page = 1): Promise<any[]> {
    const start = (page - 1) * limit
-   const url = `${JBASE}/Users/${JUSER}/Items?IncludeItemTypes=${itemType}&Recursive=true&Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags&Limit=${limit}&StartIndex=${start}&SortBy=DateCreated&SortOrder=Descending&api_key=${JKEY}`
+   const url = `${JBASE}/Users/${JUSER}/Items?IncludeItemTypes=${itemType}&Recursive=true&Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags,MediaSources,MediaStreams&Limit=${limit}&StartIndex=${start}&SortBy=DateCreated&SortOrder=Descending&api_key=${JKEY}`
    const hit = cache[url]
    if (hit && Date.now() - hit.ts < CACHE_TTL) return hit.data
    try {
@@ -80,6 +80,7 @@ function mapJellyfinToMovie(item: any): TmdbMovie {
     original_language: 'en',
     media_type: 'movie',
     container_extension: 'mkv',
+    mediaSources: item.MediaSources ?? [],
   }
 }
 
@@ -99,6 +100,7 @@ function mapJellyfinToShow(item: any): TmdbShow {
     popularity: 0,
     original_language: 'en',
     media_type: 'tv',
+    mediaSources: item.MediaSources ?? [],
   }
 }
 
@@ -159,7 +161,7 @@ export async function getPopularMovies(page = 1): Promise<TmdbMovie[]> {
 
 export async function getTopRatedMovies(page = 1): Promise<TmdbMovie[]> {
   try {
-    const url = `${JBASE}/Users/${JUSER}/Items?IncludeItemTypes=Movie&Recursive=true&Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags&Limit=20&StartIndex=${(page - 1) * 20}&SortBy=CommunityRating&SortOrder=Descending&api_key=${JKEY}`
+    const url = `${JBASE}/Users/${JUSER}/Items?IncludeItemTypes=Movie&Recursive=true&Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags,MediaSources,MediaStreams&Limit=20&StartIndex=${(page - 1) * 20}&SortBy=CommunityRating&SortOrder=Descending&api_key=${JKEY}`
     const res = await fetchWithTimeout(url, 12000)
     if (!res.ok) return getPopularMovies(page)
     const data = await res.json()
@@ -193,7 +195,7 @@ export async function getMovieVideos(_id: number): Promise<TmdbVideo[]> {
 export async function getMovieDetail(id: number | string): Promise<any> {
   try {
     const res = await fetchWithTimeout(
-      `${JBASE}/Users/${JUSER}/Items/${id}?Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags&api_key=${JKEY}`,
+      `${JBASE}/Users/${JUSER}/Items/${id}?Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags,MediaSources,MediaStreams&api_key=${JKEY}`,
       10000,
     )
     if (!res.ok) throw new Error('not ok')
@@ -212,6 +214,7 @@ export async function getMovieDetail(id: number | string): Promise<any> {
       popularity: 0,
       original_language: 'en',
       container_extension: 'mkv',
+      mediaSources: item.MediaSources ?? [],
       videos: { results: [] },
       credits: { cast: [] },
     }
@@ -224,6 +227,16 @@ export async function getMovieGenres(): Promise<TmdbGenre[]> {
   return []
 }
 
+export async function getPlaybackInfo(id: number | string): Promise<any> {
+  try {
+    const res = await fetchWithTimeout(`${JBASE}/Items/${id}/PlaybackInfo?api_key=${JKEY}`, 10000)
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
 // ── TV Shows ──────────────────────────────────────────────────────────────────
 export async function getPopularShows(page = 1): Promise<TmdbShow[]> {
   return (await jellyfinItems('Series', 20, page)).map(mapJellyfinToShow)
@@ -231,7 +244,7 @@ export async function getPopularShows(page = 1): Promise<TmdbShow[]> {
 
 export async function getTopRatedShows(page = 1): Promise<TmdbShow[]> {
   try {
-    const url = `${JBASE}/Users/${JUSER}/Items?IncludeItemTypes=Series&Recursive=true&Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags&Limit=20&StartIndex=${(page - 1) * 20}&SortBy=CommunityRating&SortOrder=Descending&api_key=${JKEY}`
+    const url = `${JBASE}/Users/${JUSER}/Items?IncludeItemTypes=Series&Recursive=true&Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags,MediaSources,MediaStreams&Limit=20&StartIndex=${(page - 1) * 20}&SortBy=CommunityRating&SortOrder=Descending&api_key=${JKEY}`
     const res = await fetchWithTimeout(url, 12000)
     if (!res.ok) return getPopularShows(page)
     const data = await res.json()
@@ -253,7 +266,7 @@ export async function getShowVideos(_id: number): Promise<TmdbVideo[]> {
 export async function getShowDetail(id: number | string): Promise<any> {
   try {
     const res = await fetchWithTimeout(
-      `${JBASE}/Users/${JUSER}/Items/${id}?Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags&api_key=${JKEY}`,
+      `${JBASE}/Users/${JUSER}/Items/${id}?Fields=Overview,Genres,CommunityRating,BackdropImageTags,ImageTags,MediaSources,MediaStreams&api_key=${JKEY}`,
       10000,
     )
     if (!res.ok) throw new Error('not ok')
@@ -271,6 +284,7 @@ export async function getShowDetail(id: number | string): Promise<any> {
       vote_count: 0,
       popularity: 0,
       original_language: 'en',
+      mediaSources: item.MediaSources ?? [],
       videos: { results: [] },
       credits: { cast: [] },
     }
